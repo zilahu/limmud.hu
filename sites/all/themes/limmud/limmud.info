@@ -1,0 +1,27 @@
+name = Limmud Theme 960.gs
+description = A 12 column theme using the 960 Grid System. 
+screenshot = screenshot.jpg
+core = 7.x
+engine = phptemplate
+base theme = ninesixty
+
+; Stylesheets. Anything within the "framework" folder will be placed before all others.
+stylesheets[all][] = styles/framework/960_12_col.css
+stylesheets[all][] = styles/framework/debug.css
+
+; Theme specific styles. Any sub-themes should override this.
+stylesheets[all][] = styles/styles.css
+
+regions[header] = Header
+regions[top_navigation] = Top navigation
+regions[help] = Help
+regions[content] = Content
+regions[content_bottom] = Content bottom
+regions[sidebar_first] = Left sidebar
+regions[footer] = Footer
+
+features[] = logo
+features[] = name
+features[] = favicon
+features[] = main_menu
+
