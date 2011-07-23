@@ -1,0 +1,15 @@
+; $Id: imagecache_profiles.info,v 1.5 2010/12/09 11:48:39 andypost Exp $
+name = Imagecache Profile Pictures
+description = Utilizes image styles for user profile pictures.
+core = 7.x
+dependencies[] = image
+files[] = imagecache_profiles.install
+files[] = imagecache_profiles.module
+files[] = views/imagecache_profiles_handler_field_user_picture.inc
+
+; Information added by drupal.org packaging script on 2010-12-24
+version = "7.x-1.0-rc2"
+core = "7.x"
+project = "imagecache_profiles"
+datestamp = "1293198067"
+
