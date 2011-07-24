@@ -5,10 +5,6 @@ core = 7.x
 engine = phptemplate
 base theme = ninesixty
 
-; Stylesheets. Anything within the "framework" folder will be placed before all others.
-stylesheets[all][] = styles/framework/960_12_col.css
-stylesheets[all][] = styles/framework/debug.css
-
 ; Theme specific styles. Any sub-themes should override this.
 stylesheets[all][] = styles/styles.css
 

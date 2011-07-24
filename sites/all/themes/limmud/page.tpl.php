@@ -32,7 +32,7 @@
     <?php print $messages; ?>
     <?php print render($page['help']); ?>
 
-    <div id="main-content" class="region <?php if (!drupal_is_front_page()): ?>prefix-1 suffix-1 grid-8<?php endif; ?> clearfix">
+    <div id="main-content" class="region <?php if (!drupal_is_front_page()): ?>prefix-1 suffix-1<?php endif; ?> clearfix">
       <?php print render($title_prefix); ?>
       <?php if ($title): ?>
       <h1 class="title" id="page-title"><?php print $title; ?></h1>
@@ -41,7 +41,7 @@
       <?php print render($page['content']); ?>
     </div>
 		
-		<div id="content-bottom-region" class="region prefix-1 suffix-1 grid-8 clearfix">
+		<div id="content-bottom-region" class="region prefix-1 suffix-1 clearfix">
       <?php print render($page['content_bottom']); ?>
     </div>
   </div>
@@ -49,12 +49,6 @@
 <?php if ($page['sidebar_first']): ?>
   <div id="sidebar-left" class="column sidebar region grid-2 pull-10">
     <?php print render($page['sidebar_first']); ?>
-  </div>
-<?php endif; ?>
-
-<?php if ($page['sidebar_second']): ?>
-  <div id="sidebar-right" class="column sidebar region grid-3">
-    <?php print render($page['sidebar_second']); ?>
   </div>
 <?php endif; ?>
 
