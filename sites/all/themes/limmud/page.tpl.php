@@ -20,10 +20,9 @@
 
 
   <div id="main" class="column grid-10 push-2">
-  	<?php if ($main_menu_links || $secondary_menu_links): ?>
+  	<?php if ($page['top_navigation']): ?>
     <div id="site-menu" class="region top-navigation-region">
-      <?php print $main_menu_links; ?>
-      <?php print $secondary_menu_links; ?>
+      <?php print render($page['top_navigation']);?>
     </div>
   <?php endif; ?>
     <?php /* print $breadcrumb; */ ?>

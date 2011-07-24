@@ -12,6 +12,10 @@ body {
 	margin-bottom: 30px;
 }
 
+.top-navigation-region .block-menu ul {
+	list-style: none;
+}
+
 .top-navigation-region a {
 	color: #8a197d;
 	font-weight: bold;
@@ -56,6 +60,7 @@ body {
 	text-align: left;
 	font-size: 12px;
 	padding: 0;
+	cursor: pointer;
 }
 
 #user-login-form .item-list ul {
@@ -99,6 +104,7 @@ body {
 }
 
 .region-footer {
+	font-size: 9pt;
 	color: #404040;
 }
 
