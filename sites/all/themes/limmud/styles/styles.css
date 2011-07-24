@@ -1,6 +1,7 @@
 /* @override 
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
+	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
 */
 
 @CHARSET "UTF-8";
@@ -143,3 +144,32 @@ body {
 	text-decoration: underline;
 }
 
+
+.front .pane-jquery-countdown-jquery-countdown {
+	margin-top: -80px; 
+}
+
+.front .pane-1 {
+margin-top: -45px;
+}
+
+.front .pane-jquery-countdown-jquery-countdown .hasCountdown {
+	border: none;
+	background: url(../images/counterbg.png) repeat-x;
+	height: 21px;
+}
+
+.front .pane-jquery-countdown-jquery-countdown .countdown_amount {
+	color: #d8e200;
+	font-size: 10pt;
+	font-weight: bold;
+}
+
+.front .pane-jquery-countdown-jquery-countdown .countdown_section {
+	width: 46px;	
+	height: 21px;
+}
+
+.front .pane-jquery-countdown-jquery-countdown  .countdown_descr {
+	display: none;
+}
