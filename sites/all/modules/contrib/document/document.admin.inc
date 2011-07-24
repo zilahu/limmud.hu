@@ -2,7 +2,7 @@
 
 require_once (drupal_get_path('module', 'document') . '/document.inc');
 
-function document_settings_form(&$form_state) {
+function document_settings_form($form_state) {
   drupal_add_css(drupal_get_path('module', 'document') . '/document.css');
 
   drupal_add_js(drupal_get_path('module', 'document') . '/document.js');
