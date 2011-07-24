@@ -1,0 +1,12 @@
+name = Document
+description = Allows users to upload Documents, search & download them.
+core = 7.x
+dependencies[] = taxonomy
+php = 5.2
+configure = admin/structure/document
+; Information added by drupal.org packaging script on 2011-06-30
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "document"
+datestamp = "1309392639"
+
