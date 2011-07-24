@@ -41,10 +41,9 @@
       <?php print render($page['content']); ?>
     </div>
 		
-		<div id="content-bottom-region" class="region clearfix">
+		<div id="content-bottom-region" class="region prefix-1 suffix-1 grid-8 clearfix">
       <?php print render($page['content_bottom']); ?>
     </div>
-    <?php print $feed_icons; ?>
   </div>
 
 <?php if ($page['sidebar_first']): ?>
