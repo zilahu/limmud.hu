@@ -120,6 +120,11 @@ body {
 	font-weight: normal;
 }
 
+#main h2 a {
+	color: #55a51c;
+	text-decoration: none;
+}
+
 #main h3 {
 	margin-top: 15px;
 }
