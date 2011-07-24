@@ -1,4 +1,9 @@
-/* @override http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j */@CHARSET "UTF-8";
+/* @override 
+	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j
+	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
+*/
+
+@CHARSET "UTF-8";
 
 body {
 	color: #8a197d;
@@ -12,23 +17,39 @@ body {
 	margin-bottom: 30px;
 }
 
-.top-navigation-region .block-menu ul {
-	list-style: none;
-}
-
-.top-navigation-region a {
+.top-navigation-region ul.nice-menu a {
 	color: #8a197d;
 	font-weight: bold;
 	text-decoration: none;
 }
 
-.top-navigation-region a:hover {
+.top-navigation-region  ul.nice-menu a:hover {
 	text-decoration: underline;
 }
 
-.top-navigation-region a.active {
+.top-navigation-region ul.nice-menu a.active,
+.top-navigation-region ul.nice-menu li.active-trail >a {
 	color: #55a51c;
 }
+
+
+.top-navigation-region ul.nice-menu-down li.menuparent {
+	background: none;
+}
+
+.top-navigation-region ul.nice-menu,
+.top-navigation-region ul.nice-menu ul,
+.top-navigation-region ul.nice-menu li {
+	border: 0;
+    background: #fff;
+}
+
+.top-navigation-region #block-nice_menus-1 {
+	position: absolute;
+    top: 0;
+    left: 0;
+}
+
 
 .region-sidebar-first h2 {
 	font-size: 11pt;
@@ -116,3 +137,4 @@ body {
 .region-footer a:hover {
 	text-decoration: underline;
 }
+
