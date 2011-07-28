@@ -86,6 +86,10 @@ body {
 	cursor: pointer;
 }
 
+.region-sidebar-first .block-user .form-item {
+	margin-top: 0;
+}
+
 #user-login-form .item-list ul {
 	list-style: none;
 }
