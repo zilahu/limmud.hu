@@ -2,6 +2,7 @@
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp15p6
 */
 
 @CHARSET "UTF-8";
@@ -110,7 +111,6 @@ body {
 
 .region-content-bottom {
 	margin-bottom: 30px;
-	height: 45px;
 	overflow: hidden;
 	vertical-align: bottom;
 }
@@ -144,14 +144,19 @@ body {
 	text-decoration: underline;
 }
 
+.front .pane-content p {
+	margin-bottom: 5px;
+}
+
+
+.front .view-onkentes-veletlen-kepek table {
+	margin-bottom: 0;
+}
 
 .front .pane-jquery-countdown-jquery-countdown {
-	margin-top: -80px; 
+margin-bottom: 15px;
 }
 
-.front .pane-1 {
-margin-top: -45px;
-}
 
 .front .pane-jquery-countdown-jquery-countdown .hasCountdown {
 	border: none;
