@@ -202,3 +202,11 @@ margin-bottom: 15px;
 .field-name-body {
 	margin-top: 10px;
 }
+
+.view-eloadok-listaja-v div.field-content {
+	margin-bottom: 10px;
+}
+
+.view-eloadoeloadosai-v table {
+	width: 100%;
+}
