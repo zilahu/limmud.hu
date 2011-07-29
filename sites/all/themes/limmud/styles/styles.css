@@ -3,6 +3,7 @@
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp15p6
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp3uxt
 */
 
 @CHARSET "UTF-8";
@@ -11,6 +12,15 @@ body {
 	color: #8a197d;
 }
 
+
+a {
+	color: #55a51c;
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
 #site-header {
 	margin-bottom: 18px;
 }
@@ -181,4 +191,10 @@ margin-bottom: 15px;
 
 .front .pane-jquery-countdown-jquery-countdown  .countdown_descr {
 	display: none;
+}
+
+
+.field-name-field-presentation-tags .field-items .field-item {
+	float: left;
+	margin-left: 5px;
 }
