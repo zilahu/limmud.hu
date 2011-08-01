@@ -4,6 +4,7 @@
 	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp15p6
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp3uxt
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp8j47
 */
 
 @CHARSET "UTF-8";
@@ -23,6 +24,32 @@ a:hover {
 }
 #site-header {
 	margin-bottom: 18px;
+	height: 180px;
+}
+
+#header-region .block-locale {
+	z-index: 1000;
+	float: right;
+	position: relative;
+	top: -180px;
+	/*
+	background: #fff;
+	opacity: 0.9;
+	*/
+	padding: 8px;
+	height: 20px;
+}
+
+#header-region .block-locale ul {
+	list-style: none;
+}
+
+#header-region .block-locale li {
+	display: inline;
+}
+
+#header-region .block-locale li.active {
+	display: none;
 }
 
 .top-navigation-region {
