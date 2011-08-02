@@ -1,0 +1,6 @@
+<?php
+function limmudhelper_menu_alter(&$items) {
+  // Example - disable the page at node/add
+  // $items['node/add']['access callback'] = FALSE;
+  kpr($items);
+}

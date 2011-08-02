@@ -5,6 +5,7 @@
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp15p6
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp3uxt
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp8j47
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp9hp8
 */
 
 @CHARSET "UTF-8";
@@ -230,10 +231,46 @@ margin-bottom: 15px;
 	margin-top: 10px;
 }
 
+.view-eloadoeloadosai-v table {
+	width: 100%;
+}
+
+.view-eloadoeloadosai-v table caption {
+	text-align: left;
+	font-weight: bold;
+	font-size: 12pt;
+}
+
+.view-eloadoeloadosai-v .views-field-field-presentation-location,
+.view-eloadoeloadosai-v .views-field-field-presentation-types,
+.view-eloadoeloadosai-v .views-field-field-presentation-tags  {
+	margin-left: 20px;
+}
+
+.view-eloadoeloadosai-v .views-label {
+	display: inline;
+	float: left;
+	width: 9em;
+}
+
+.view-eloadoeloadosai-v .field-content {
+	margin-bottom: 0 !important;
+}
+
+.view-eloadoeloadosai-v .views-row {
+	margin-bottom: 15px;
+}
 .view-eloadok-listaja-v div.field-content {
 	margin-bottom: 10px;
 }
 
-.view-eloadoeloadosai-v table {
-	width: 100%;
+.view-eloadok-listaja-v .view-eloadoeloadosai-v {
+	width: 50%;
+	float: left;
+}
+
+.view-eloadok-listaja-v .field-name-body {
+	padding-right: 10px;
+	width: 45%;
+	float: left;
 }

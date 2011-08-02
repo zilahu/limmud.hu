@@ -1,0 +1,8 @@
+name = Limmud Helper
+description = Helper functions for limmud.hu site
+package = Koolin
+version = VERSION
+core = 7.x
+files[] = limmudhelper.module
+
+
