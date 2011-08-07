@@ -276,6 +276,16 @@ margin-bottom: 15px;
 	float: left;
 }
 
+.node-webform .content >.form-item {
+	display: none;
+}
+
+#webform-component-jegyek >legend {
+	color: #55a51c;
+	font-weight: bold;
+	font-size: 12pt;
+}
+
 #webform-component-jegyek--lamed--lamed-felnott,
 #webform-component-jegyek--lamed--lamed-gyerek,
 #webform-component-jegyek--mem--mem-felnott,
