@@ -6,6 +6,7 @@
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp3uxt
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp8j47
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp9hp8
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpd7oc
 */
 
 @CHARSET "UTF-8";
@@ -273,4 +274,15 @@ margin-bottom: 15px;
 	padding-right: 10px;
 	width: 45%;
 	float: left;
+}
+
+#webform-component-jegyek--lamed--lamed-felnott,
+#webform-component-jegyek--lamed--lamed-gyerek,
+#webform-component-jegyek--mem--mem-felnott,
+#webform-component-jegyek--mem--mem-gyerek,
+#webform-component-jegyek--dalet--dalet-felnott,
+#webform-component-jegyek--dalet--dalet-gyerek
+ {
+	float: left;
+	margin-right: 100px;
 }
