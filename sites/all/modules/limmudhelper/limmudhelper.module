@@ -1,17 +1,10 @@
 <?php
-function limmudhelper_menu_alter(&$items) {
-  // Example - disable the page at node/add
-  // $items['node/add']['access callback'] = FALSE;
-}
-/*
-function limmudhelper_menu_link_alter(&$item) {
-  global $user;
-  
-  if ($item['link_path'] == "http://atrium.limmud.hu") { // && $user->uid != 1
-      $item['hidden'] = 1;
-      print_r($item);
-      die();
-  }  
+function limmudhelper_views_query_alter(&$view, &$query) {
+  if ($view->name == 'eloadas_idopontok_v') {
+   // kpr($query);
+    $query->fields['field_presentation_time_value']['field'] = "DATE_FORMAT(ADDTIME(field_data_field_presentation_time.field_presentation_time_value, SEC_TO_TIME(7200)), '%W')";
+    //kpr($query);
+  }
   
 }
-*/
+

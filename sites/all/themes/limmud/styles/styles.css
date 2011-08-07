@@ -62,10 +62,15 @@ a:hover {
 	color: #8a197d;
 	font-weight: bold;
 	text-decoration: none;
+	padding: 0;
 }
 
 .top-navigation-region  ul.nice-menu a:hover {
 	text-decoration: underline;
+}
+
+.top-navigation-region ul.nice-menu li {
+	margin-right: 26px;
 }
 
 .top-navigation-region ul.nice-menu a.active,
