@@ -2,5 +2,16 @@
 function limmudhelper_menu_alter(&$items) {
   // Example - disable the page at node/add
   // $items['node/add']['access callback'] = FALSE;
-  kpr($items);
 }
+/*
+function limmudhelper_menu_link_alter(&$item) {
+  global $user;
+  
+  if ($item['link_path'] == "http://atrium.limmud.hu") { // && $user->uid != 1
+      $item['hidden'] = 1;
+      print_r($item);
+      die();
+  }  
+  
+}
+*/
