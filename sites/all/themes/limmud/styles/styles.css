@@ -7,6 +7,7 @@
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp8j47
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp9hp8
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpd7oc
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpkej8
 */
 
 @CHARSET "UTF-8";
@@ -70,7 +71,7 @@ a:hover {
 }
 
 .top-navigation-region ul.nice-menu li {
-	margin-right: 26px;
+	margin-right: 20px;
 }
 
 .top-navigation-region ul.nice-menu a.active,
@@ -300,4 +301,14 @@ margin-bottom: 15px;
  {
 	float: left;
 	margin-right: 100px;
+}
+
+
+.views-field-field-volunteer-photo {
+	margin-right: 5px;
+}
+
+.view-eloados-kategoriak .views-row {
+	display: inline-block;
+	margin-right: 2px
 }
