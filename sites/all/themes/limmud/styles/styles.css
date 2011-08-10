@@ -91,6 +91,10 @@ a:hover {
     background: #fff;
 }
 
+.top-navigation-region ul.nice-menu ul li {
+	padding-bottom: 6px;
+}
+
 .top-navigation-region #block-nice_menus-1 {
 	position: absolute;
     top: 0;
@@ -177,6 +181,10 @@ a:hover {
 
 #main h3 {
 	margin-top: 15px;
+}
+
+#main .view-eloadok-listaja-v h3 {
+	margin-top: 0;
 }
 
 .region-footer {
@@ -311,4 +319,8 @@ margin-bottom: 15px;
 .view-eloados-kategoriak .views-row {
 	display: inline-block;
 	margin-right: 2px
+}
+
+.bordered table {
+	border: 2px;
 }
