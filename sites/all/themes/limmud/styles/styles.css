@@ -312,7 +312,7 @@ margin-bottom: 15px;
 }
 
 
-.views-field-field-volunteer-photo {
+.page-onkentesek .views-field-field-volunteer-photo {
 	margin-right: 5px;
 }
 
@@ -323,4 +323,8 @@ margin-bottom: 15px;
 
 .bordered table {
 	border: 2px;
+}
+
+.page-konfesztival .panel-pane {
+	margin-bottom: 20px;
 }
