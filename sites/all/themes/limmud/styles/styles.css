@@ -1,13 +1,5 @@
 /* @override 
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp15p6
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp3uxt
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp8j47
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lp9hp8
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpd7oc
-	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpkej8
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpvjq2
 */
 
 @CHARSET "UTF-8";
@@ -327,4 +319,14 @@ margin-bottom: 15px;
 
 .page-konfesztival .panel-pane {
 	margin-bottom: 20px;
+}
+
+.page-eloadasok h3 {
+	color: #8a197d !important;
+	border-bottom: 2px solid;
+	font-weight: bold !important;
+}
+
+.page-eloadasok .view-eloadasok-naponkent .views-row {
+	padding-left: 25px;
 }
