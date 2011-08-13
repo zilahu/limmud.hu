@@ -240,7 +240,7 @@ function i18n_string_refresh_enabled_modules($modules) {
     module_invoke($module, 'i18n_string_refresh', 'all');
   }
   if ($count) {
-    drupal_set_message(format_plural($count, 'Refresed one string for enabled modules.', 'Refreshed @count strings for the enabled modules.'));
+    drupal_set_message(format_plural($count, 'Refreshed one string for enabled modules.', 'Refreshed @count strings for the enabled modules.'));
   }
 }
 
@@ -298,7 +298,7 @@ function _i18n_string_batch_refresh_callback($group, &$context) {
  * Batch callback, delete old strings
  */
 function _i18n_string_batch_refresh_cleanup($group, &$context) {
-  if (!empty($context[$group]['result'])) {
+  if (!empty($context['results'][$group]['result'])) {
     $context['results'][$group]['deleted'] = i18n_string_refresh_cleanup($group);
   }
 }
@@ -335,12 +335,13 @@ function i18n_string_group_string_list($group) {
  */
 function i18n_string_module_string_list($module) {
   $strings = array();
-  // Try loading i18n.inc for the module
+  // Try loading i18n.inc for the module and some library functions.
   module_load_include('i18n.inc', $module);
+  module_load_include('i18n.inc', 'i18n_string');
   // If the module defines any textgroup, get all strings for this group
   if ($groups = module_invoke($module, 'i18n_string_info')) {
     foreach ($groups as $group) {
-      $strings = array_merge_recursive($strings, i18n_string_group_string_list($group));
+      $strings = i18n_string_array_merge($strings, i18n_string_group_string_list($group));
     }   
   }
   else {
@@ -359,7 +360,7 @@ function i18n_string_module_string_list($module) {
     foreach ($object_types as $type => $type_info) {
       if (($group = i18n_string_object_info($type, 'textgroup')) && !in_array($group, $groups)) {
         if ($group_strings = i18n_string_object_type_string_list($type)) {
-          $strings = array_merge_recursive($strings, $group_strings);
+          $strings = i18n_string_array_merge($strings, $group_strings);
         }
       }
     }

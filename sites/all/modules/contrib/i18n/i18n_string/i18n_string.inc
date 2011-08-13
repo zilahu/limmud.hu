@@ -157,7 +157,7 @@ class i18n_string_object {
    * There's a hidden variable, 'i18n_string_debug', that when set to TRUE will display additional info
    */
   public function format_translation($langcode, $options = array()) {
-    $options += array('langcode' => $langcode, 'sanitize' => TRUE, 'cache' => FALSE, 'debug' => $this->textgroup()->debug);
+    $options += array('langcode' => $langcode, 'sanitize' => TRUE, 'sanitize default' => FALSE, 'cache' => FALSE, 'debug' => $this->textgroup()->debug);
     if ($translation = $this->get_translation($langcode)) {
       $string = $translation;
       if (isset($options['filter'])) {
@@ -167,6 +167,7 @@ class i18n_string_object {
     else {
       // Get default source string if no translation.
       $string = $this->get_string();
+      $options['sanitize'] = $options['sanitize default'];
     }
     if (!empty($this->format)) {
       $options += array('format' => $this->format);
@@ -1059,7 +1060,7 @@ class i18n_string_object_wrapper extends i18n_object_wrapper {
       $object_id,
     );
     $strings = array();   
-    foreach ($this->get_string_info('properties') as $field => $info) {
+    foreach ($this->get_string_info('properties', array()) as $field => $info) {
       $info = is_array($info) ? $info : array('title' => $info);
       $field_name = isset($info['field']) ? $info['field'] : $field;
       $value = $this->get_field($field_name);
@@ -1138,7 +1139,14 @@ class i18n_string_object_wrapper extends i18n_object_wrapper {
     }
     return $this->translations[$langcode];
   }
-  
+
+  /**
+   * Translate access (localize strings)
+   */
+  protected function localize_access() {
+    return user_access('translate interface');
+  }
+
   /**
    * Translate all properties for object.
    * 

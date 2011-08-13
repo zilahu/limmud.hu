@@ -54,54 +54,25 @@ function i18n_field_menu() {
           $items["$path/fields/%field_ui_menu/translate"] = array(
             'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
             'title' => 'Translate',
-            'page callback' => 'i18n_string_object_translate_page',
-            'page arguments' => array('field_instance', $field_position),
+            'page callback' => 'i18n_field_page_translate',
+            'page arguments' => array($field_position),
+            'file' => 'i18n_field.pages.inc',
             'type' => MENU_LOCAL_TASK,
           ) + $access;
-          $items["$path/fields/%field_ui_menu/translate/instance"] = array(
-            'title' => 'Instance',
-            'type' => MENU_DEFAULT_LOCAL_TASK,
-          );
-          $items["$path/fields/%field_ui_menu/translate/instance/%language"] = array(
+          
+          $items["$path/fields/%field_ui_menu/translate/%language"] = array(
             'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
             'title' => 'Instance',
-            'page callback' => 'i18n_string_object_translate_page',
-            'page arguments' => array('field_instance', $field_position, $field_position + 3),
+            'page callback' => 'i18n_field_page_translate',
+            'page arguments' => array($field_position, $field_position + 2),
+            'file' => 'i18n_field.pages.inc',
             'type' => MENU_CALLBACK,
           ) + $access;
-          $items["$path/fields/%i18n_field/translate/field"] = array(
-            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
-            'title' => 'Field',
-            'page callback' => 'i18n_string_object_translate_page',
-            'page arguments' => array('field', $field_position),
-            'type' => MENU_LOCAL_TASK,
-          ) + $access;
-          $items["$path/fields/%i18n_field/translate/field/%language"] = array(
-            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
-            'title' => 'Field',
-            'page callback' => 'i18n_string_object_translate_page',
-            'page arguments' => array('field', $field_position, $field_position + 3),
-            'type' => MENU_CALLBACK,
-          ) + $access;
-        }
+        }      
       }
     }
   }
   return $items;
-}
-
-/**
- * Menu loader for field with extra information
- * 
- * To be able to translate fields we need some instance information to place them in the menu
- */
-function i18n_field_load($field_name, $entity_type, $bundle_name, $bundle_pos, $map) {
-  if ($instance = field_ui_menu_load($field_name, $entity_type, $bundle_name, $bundle_pos, $map)) {
-    return field_info_field($instance['field_name']) + $instance;
-  }
-  else {
-    return FALSE;
-  }
 }
 
 /**
@@ -176,7 +147,7 @@ function i18n_field_field_formatter_view($entity_type, $entity, $field, $instanc
   switch ($display['type']) {
     case 'i18n_list_default':
       if (($translate = i18n_field_type_info($field['type'], 'translate_options'))) {
-        $allowed_values = $translate($field, $langcode);
+        $allowed_values = $translate($field);
       }
       else {
         // Defaults to list_default behavior
@@ -246,7 +217,7 @@ function i18n_field_field_storage_info_alter(&$info) {
  * - List options
  * @see field_default_form()
  */
-function i18n_field_field_widget_form($form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+function i18n_field_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   global $language;
   // The field language may affect some variables (default) but not others (description will be in current page language)
   $i18n_langcode = empty($element['#language']) || $element['#language'] == LANGUAGE_NONE ? $language->language : $element['#language'];

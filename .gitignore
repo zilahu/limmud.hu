@@ -5,5 +5,11 @@ sites/*/settings*.php
 sites/*/files
 sites/*/private
 
+
+# Ignore devel modules
+sites/all/modules/contrib/devel/*
+sites/all/modules/contrib/devel/**
+
+
 .DS_Store
 
