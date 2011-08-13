@@ -17,10 +17,8 @@
 ?>
 <?php 
 include_once(drupal_get_path('module', 'webform') .'/includes/webform.submissions.inc');
-kpr($node);
 $confirmation_message = str_replace("[%sid]", $sid, $confirmation_message);
 $submission = webform_get_submission($node->nid, $sid);
-kpr($submission);
 ?>
 <div class="webform-confirmation">
   <?php if ($confirmation_message): ?>

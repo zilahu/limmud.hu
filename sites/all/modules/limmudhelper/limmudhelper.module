@@ -118,3 +118,115 @@ function limmudhelper_contents($which_block) {
   }
 }
 
+/**
+ * Respond to a Webform submission being inserted.
+ *
+ * Note that this hook is called after a submission has already been saved to
+ * the database. If needing to modify the submission prior to insertion, use
+ * hook_webform_submission_presave().
+ *
+ * @param $node
+ *   The Webform node on which this submission was made.
+ * @param $submission
+ *   The Webform submission that was just inserted into the database.
+ */
+function limmudhelper_webform_submission_insert($node, $submission) {
+  if ($node->nid == 83) {
+    $mapping = _limmudhelper_webform_component_mapping($node);
+    // watchdog('php', print_r($submission, true));
+    // Személyes adatok sessionbe
+    
+    unset($_SESSION['limmud_ticket_data']);
+    
+    $_SESSION['limmud_ticket_data'] = array('vezeteknev' => $submission->data[$mapping['vezeteknev']]['value'][0],
+                                            'keresztnev' => $submission->data[$mapping['keresztnev']]['value'][0],
+                                            'telefonszam' => $submission->data[$mapping['telefonszam']]['value'][0],
+                                            'email' => $submission->data[$mapping['email']]['value'][0],
+                                            'submission_id' => $submission->sid,
+    );
+    
+    /* Dalet felnő		237
+     * Dalet gyerek 	243
+     * Dalet manó		  244 
+     * Lamed felnőtt 	235
+     * Lamed gyerek 	239
+     * lamed Manó 		240
+     * Mem felnőtt 		236
+     * Mem gyerek 		241
+     * Mem manó 			242
+     */
+    $lamed_felnott = $submission->data[$mapping['lamed_felnott']]['value'][0];
+    $lamed_gyerek = $submission->data[$mapping['lamed_gyerek']]['value'][0];
+    $lamed_mano = $submission->data[$mapping['lamed_mano']]['value'][0];
+    
+    $mem_felnott = $submission->data[$mapping['mem_felnott']]['value'][0];
+    $mem_gyerek = $submission->data[$mapping['mem_gyerek']]['value'][0];
+    $mem_mano = $submission->data[$mapping['mem_mano']]['value'][0];
+    
+    $dalet_felnott = $submission->data[$mapping['dalet_felnott']]['value'][0];
+    $dalet_gyerek = $submission->data[$mapping['dalet_gyerek']]['value'][0];
+    $dalet_mano = $submission->data[$mapping['dalet_mano']]['value'][0];
+    
+    if ($lamed_felnott > 0 ) {
+      uc_cart_add_item(235,$lamed_felnott);
+    }
+    if ($lamed_gyerek > 0 ) {
+      uc_cart_add_item(239,$lamed_gyerek);
+    }
+    if ($lamed_mano > 0 ) {
+      uc_cart_add_item(240,$lamed_mano);
+    }
+    if ($mem_felnott > 0 ) {
+      uc_cart_add_item(236,$mem_felnott);
+    }
+    if ($mem_gyerek > 0 ) {
+      uc_cart_add_item(241,$mem_gyerek);
+    }
+    if ($mem_mano > 0 ) {
+      uc_cart_add_item(242,$mem_mano);
+    }
+    if ($dalet_felnott > 0 ) {
+      uc_cart_add_item(237,$dalet_felnott);
+    }
+    if ($lamed_gyerek > 0 ) {
+      uc_cart_add_item(243,$dalet_gyerek);
+    }
+    if ($dalet_mano > 0 ) {
+      uc_cart_add_item(244,$dalet_mano);
+    }
+  }
+}
+
+/**
+ * 
+ * Full ubercart billing adress from Webform data 
+ * @param array $form
+ * @param unknown_type $form_state
+ * @param int $form_id
+ */
+function limmudhelper_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'uc_cart_checkout_form') {
+    // kpr($form);
+    // kpr($_SESSION['limmud_ticket_data']);
+    if (array_key_exists('limmud_ticket_data', $_SESSION)) {
+      $form['panes']['billing']['address']['#default_value']->billing_first_name = $_SESSION['limmud_ticket_data']['keresztnev'];
+      $form['panes']['billing']['address']['#default_value']->billing_last_name = $_SESSION['limmud_ticket_data']['vezeteknev'];
+      $form['panes']['billing']['address']['#default_value']->billing_phone = $_SESSION['limmud_ticket_data']['telefonszam'];
+      $form['panes']['comments']['comments']['#default_value'] = "Jelentkezés azonosító: ".$_SESSION['limmud_ticket_data']['submission_id'];
+    }
+  }
+}
+
+/**
+ * 
+ */
+function _limmudhelper_webform_component_mapping($node) {
+  $mapping = array();
+  $components = $node->webform['components'];
+  foreach ($components as $i => $component) {
+    $key = $component['form_key'];
+    $mapping[$key] = $i;
+  }
+  return $mapping;
+}
+
