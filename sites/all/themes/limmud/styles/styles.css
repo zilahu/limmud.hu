@@ -1,5 +1,6 @@
 /* @override 
 	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpvjq2
+	http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpykji
 */
 
 @CHARSET "UTF-8";
@@ -330,4 +331,14 @@ margin-bottom: 15px;
 
 .page-eloadasok .view-eloadasok-naponkent .views-row {
 	padding-left: 25px;
+}
+
+.links {
+	float: right;
+}
+#comments .submitted {
+ font-weight: bold;
+}
+.comment {
+	margin-bottom: 40px;
 }
