@@ -1,5 +1,4 @@
-/* @override 
-*/
+/* @override http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpykji */
 
 @CHARSET "UTF-8";
 
@@ -197,6 +196,12 @@ a:hover {
 }
 
 
+.front .view-onkentes-veletlen-kepek {
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
+
+
 .front .view-onkentes-veletlen-kepek table {
 	margin-bottom: 0;
 }
@@ -226,6 +231,8 @@ margin-bottom: 15px;
 .front .pane-jquery-countdown-jquery-countdown  .countdown_descr {
 	display: none;
 }
+
+
 
 
 .field-name-field-presentation-tags .field-items .field-item {
