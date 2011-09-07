@@ -1,8 +1,4 @@
-/* @override 
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?losq8j
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?lotspk
-	http://limmud.hu.localhost:8082/sites/all/themes/limmud/styles/styles.css?loub82
-*/
+/* @override http://teszt.limmud.hu/sites/all/themes/limmud/styles/styles.css?lpykji */
 
 @CHARSET "UTF-8";
 
@@ -10,8 +6,43 @@ body {
 	color: #8a197d;
 }
 
+
+a {
+	color: #55a51c;
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
 #site-header {
 	margin-bottom: 18px;
+	height: 180px;
+}
+
+#header-region .block-locale {
+	z-index: 1000;
+	float: right;
+	position: relative;
+	top: -180px;
+	/*
+	background: #fff;
+	opacity: 0.9;
+	*/
+	padding: 8px;
+	height: 20px;
+}
+
+#header-region .block-locale ul {
+	list-style: none;
+}
+
+#header-region .block-locale li {
+	display: inline;
+}
+
+#header-region .block-locale li.active {
+	display: none;
 }
 
 .top-navigation-region {
@@ -22,10 +53,15 @@ body {
 	color: #8a197d;
 	font-weight: bold;
 	text-decoration: none;
+	padding: 0;
 }
 
 .top-navigation-region  ul.nice-menu a:hover {
 	text-decoration: underline;
+}
+
+.top-navigation-region ul.nice-menu li {
+	margin-right: 20px;
 }
 
 .top-navigation-region ul.nice-menu a.active,
@@ -43,6 +79,10 @@ body {
 .top-navigation-region ul.nice-menu li {
 	border: 0;
     background: #fff;
+}
+
+.top-navigation-region ul.nice-menu ul li {
+	padding-bottom: 6px;
 }
 
 .top-navigation-region #block-nice_menus-1 {
@@ -85,6 +125,10 @@ body {
 	cursor: pointer;
 }
 
+.region-sidebar-first .block-user .form-item {
+	margin-top: 0;
+}
+
 #user-login-form .item-list ul {
 	list-style: none;
 }
@@ -110,7 +154,6 @@ body {
 
 .region-content-bottom {
 	margin-bottom: 30px;
-	height: 45px;
 	overflow: hidden;
 	vertical-align: bottom;
 }
@@ -130,6 +173,10 @@ body {
 	margin-top: 15px;
 }
 
+#main .view-eloadok-listaja-v h3 {
+	margin-top: 0;
+}
+
 .region-footer {
 	font-size: 9pt;
 	color: #404040;
@@ -144,15 +191,25 @@ body {
 	text-decoration: underline;
 }
 
-/*
-.front .pane-jquery-countdown-jquery-countdown {
-	margin-top: -80px; 
+.front .pane-content p {
+	margin-bottom: 5px;
 }
 
-.front .pane-1 {
-margin-top: -45px;
+
+.front .view-onkentes-veletlen-kepek {
+	margin-top: 10px;
+	margin-bottom: 10px;
 }
-*/
+
+
+.front .view-onkentes-veletlen-kepek table {
+	margin-bottom: 0;
+}
+
+.front .pane-jquery-countdown-jquery-countdown {
+margin-bottom: 15px;
+}
+
 
 .front .pane-jquery-countdown-jquery-countdown .hasCountdown {
 	border: none;
@@ -173,4 +230,120 @@ margin-top: -45px;
 
 .front .pane-jquery-countdown-jquery-countdown  .countdown_descr {
 	display: none;
+}
+
+
+
+
+.field-name-field-presentation-tags .field-items .field-item {
+	float: left;
+	margin-left: 5px;
+}
+
+.field-name-body {
+	margin-top: 10px;
+}
+
+.view-eloadoeloadosai-v table {
+	width: 100%;
+}
+
+.view-eloadoeloadosai-v table caption {
+	text-align: left;
+	font-weight: bold;
+	font-size: 12pt;
+}
+
+.view-eloadoeloadosai-v .views-field-field-presentation-location,
+.view-eloadoeloadosai-v .views-field-field-presentation-types,
+.view-eloadoeloadosai-v .views-field-field-presentation-tags  {
+	margin-left: 20px;
+}
+
+.view-eloadoeloadosai-v .views-label {
+	display: inline;
+	float: left;
+	width: 9em;
+}
+
+.view-eloadoeloadosai-v .field-content {
+	margin-bottom: 0 !important;
+}
+
+.view-eloadoeloadosai-v .views-row {
+	margin-bottom: 15px;
+}
+.view-eloadok-listaja-v div.field-content {
+	margin-bottom: 10px;
+}
+
+.view-eloadok-listaja-v .view-eloadoeloadosai-v {
+	width: 50%;
+	float: left;
+	margin-top: -31px;
+}
+
+.view-eloadok-listaja-v .field-name-body {
+	padding-right: 10px;
+	width: 45%;
+	float: left;
+}
+
+.node-webform .content >.form-item {
+	display: none;
+}
+
+#webform-component-jegyek >legend {
+	color: #55a51c;
+	font-weight: bold;
+	font-size: 12pt;
+}
+
+#webform-component-jegyek--lamed--lamed-felnott,
+#webform-component-jegyek--lamed--lamed-gyerek,
+#webform-component-jegyek--mem--mem-felnott,
+#webform-component-jegyek--mem--mem-gyerek,
+#webform-component-jegyek--dalet--dalet-felnott,
+#webform-component-jegyek--dalet--dalet-gyerek
+ {
+	float: left;
+	margin-right: 100px;
+}
+
+
+.page-onkentesek .views-field-field-volunteer-photo {
+	margin-right: 5px;
+}
+
+.view-eloados-kategoriak .views-row {
+	display: inline-block;
+	margin-right: 2px
+}
+
+.bordered table {
+	border: 2px;
+}
+
+.page-konfesztival .panel-pane {
+	margin-bottom: 20px;
+}
+
+.page-eloadasok h3 {
+	color: #8a197d !important;
+	border-bottom: 2px solid;
+	font-weight: bold !important;
+}
+
+.page-eloadasok .view-eloadasok-naponkent .views-row {
+	padding-left: 25px;
+}
+
+.links {
+	float: right;
+}
+#comments .submitted {
+ font-weight: bold;
+}
+.comment {
+	margin-bottom: 40px;
 }
