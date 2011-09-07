@@ -131,7 +131,7 @@ function limmudhelper_contents($which_block) {
  *   The Webform submission that was just inserted into the database.
  */
 function limmudhelper_webform_submission_insert($node, $submission) {
-  if ($node->nid == 83) {
+  if ($node->nid == 83 || $node->nid == 251) { // 83: magyar, 251: angol
     $mapping = _limmudhelper_webform_component_mapping($node);
     // watchdog('php', print_r($submission, true));
     // Személyes adatok sessionbe

@@ -6,7 +6,7 @@ function limmud_nice_menus_menu_item_link($variables) {
     $variables['element']['#localized_options'] = array();
   }
   
-  if ($variables['element']['#href'] == 'http://atrium.limmud.hu' && (!in_array('administrator', $user->roles) && !in_array('szerkéntes', $user->roles))) {
+  if ($variables['element']['#href'] == 'http://szervezes.limmud.hu' && (!in_array('administrator', $user->roles) && !in_array('szerkéntes', $user->roles))) {
      return "";
   }
   
