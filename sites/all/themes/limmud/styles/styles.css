@@ -325,9 +325,18 @@ margin-bottom: 15px;
 }
 
 table.bordered {
-	border: 2px;
+	border: 1px solid;
 }
 
+.bordered tr,
+.bordered td {
+    border: 1px solid;
+    padding: 3px;
+}
+
+.bordered p {
+    margin: 0 !important;
+}
 
 .page-konfesztival .panel-pane {
 	margin-bottom: 20px;
