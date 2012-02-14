@@ -131,7 +131,7 @@ function limmudhelper_contents($which_block) {
  *   The Webform submission that was just inserted into the database.
  */
 function limmudhelper_webform_submission_insert($node, $submission) {
-  if ($node->nid == 83 || $node->nid == 251) { // 83: magyar, 251: angol
+  if ($node->nid == 83 || $node->nid == 251 ) { // 83: magyar, 251: angol
     $mapping = _limmudhelper_webform_component_mapping($node);
     // watchdog('php', print_r($submission, true));
     // Személyes adatok sessionbe
@@ -147,7 +147,7 @@ function limmudhelper_webform_submission_insert($node, $submission) {
     
     /* Dalet felnő		237
      * Dalet gyerek 	243
-     * Dalet manó		  244 
+     * Dalet manó		244 
      * Lamed felnőtt 	235
      * Lamed gyerek 	239
      * lamed Manó 		240
@@ -193,6 +193,44 @@ function limmudhelper_webform_submission_insert($node, $submission) {
     }
     if ($dalet_mano > 0 ) {
       uc_cart_add_item(244,$dalet_mano);
+    }
+  }
+  
+  if ($node->nid == 460 ) { // 460: 2012-es magyar
+    $mapping = _limmudhelper_webform_component_mapping($node);
+    // watchdog('php', print_r($submission, true));
+    // Személyes adatok sessionbe
+    
+    unset($_SESSION['limmud_ticket_data']);
+    
+    $_SESSION['limmud_ticket_data'] = array('vezeteknev' => $submission->data[$mapping['vezeteknev']]['value'][0],
+                                            'keresztnev' => $submission->data[$mapping['keresztnev']]['value'][0],
+                                            'telefonszam' => $submission->data[$mapping['telefonszam']]['value'][0],
+                                            'email' => $submission->data[$mapping['email']]['value'][0],
+                                            'submission_id' => $submission->sid,
+    );
+    
+    /* Napijegy felnőtt 457
+     * Napjegy gyerek 	458
+     * Napjegy manó		459 
+     * Napjegy család 	461
+     */
+    $nj_felnott = $submission->data[$mapping['NAPI_FELNOTT']]['value'][0];
+    $nj_gyerek = $submission->data[$mapping['napi_gyerek']]['value'][0];
+    $nj_mano = $submission->data[$mapping['napi_mano']]['value'][0];
+    $nj_csalad = $submission->data[$mapping['csaladi_2_felnott_es_2_gyerek']]['value'][0];
+    
+    if ($nj_felnott > 0 ) {
+      uc_cart_add_item(457,$nj_felnott);
+    }
+    if ($nj_gyerek > 0 ) {
+      uc_cart_add_item(458,$nj_gyerek);
+    }
+    if ($nj_mano > 0 ) {
+      uc_cart_add_item(459,$nj_mano);
+    }
+    if ($nj_csalad > 0 ) {
+      uc_cart_add_item(461,$nj_csalad);
     }
   }
 }
