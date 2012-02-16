@@ -196,7 +196,7 @@ function limmudhelper_webform_submission_insert($node, $submission) {
     }
   }
   
-  if ($node->nid == 460 ) { // 460: 2012-es magyar
+  if ($node->nid == 460 || $node->nid == 464) { // 460: 2012-es magyar 464: angol
     $mapping = _limmudhelper_webform_component_mapping($node);
     // watchdog('php', print_r($submission, true));
     // Személyes adatok sessionbe
