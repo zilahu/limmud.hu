@@ -108,6 +108,18 @@ function file_entity_install() {
   else {
     db_add_field('file_managed', 'type', $spec, $indexes_new);
   }
+
+  // Update all files with empty types to use the first part of filemime.
+  db_update('file_managed')
+    ->expression('type', "SUBSTRING_INDEX(filemime, '/', 1)")
+    ->condition('type', '')
+    ->execute();
+
+  // Set permissions.
+  $roles = user_roles();
+  foreach ($roles as $rid => $role) {
+    user_role_grant_permissions($rid, array('view file'));
+  }
 }
 
 /**
@@ -189,4 +201,48 @@ function file_entity_update_7001() {
     }
   }
   variable_del('file_displays');
+}
+
+/**
+ * Empty update function to trigger a theme registry rebuild.
+ */
+function file_entity_update_7100() { }
+
+/**
+ * Update all files with empty types to use the first part of filemime.
+ *
+ * For example, an png image with filemime 'image/png' will be assigned a file
+ * type of 'image'.
+ */
+function file_entity_update_7101() {
+  db_update('file_managed')
+    ->expression('type', "SUBSTRING_INDEX(filemime, '/', 1)")
+    ->condition('type', '')
+    ->execute();
+}
+
+/**
+ * Empty update function to trigger an entity cache rebuild.
+ */
+function file_entity_update_7102() { }
+
+/**
+ * Intentionally left blank.
+ */
+function file_entity_update_7103() { }
+
+/**
+ * Assign view file permission when updating without the Media module.
+ */
+function file_entity_update_7104() {
+  if (!module_exists('media')) {
+    $roles = user_roles(FALSE, 'view file');
+    if (empty($roles)) {
+      // Set permissions.
+      $roles = user_roles();
+      foreach ($roles as $rid => $role) {
+        user_role_grant_permissions($rid, array('view file'));
+      }
+    }
+  }
 }

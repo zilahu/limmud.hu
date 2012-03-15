@@ -12,6 +12,8 @@
  */
 function i18n_page_menu_items() {
   $items = array();
+  // Menus are rebuilt right after other modules are disabled, if no reset we get tabs for disabled modules.
+  drupal_static_reset('i18n_object_info');
   foreach (i18n_object_info() as $type => $info) {
     // These objects should have a 'translate tab' property
     if (!empty($info['translate tab'])) {
@@ -45,14 +47,14 @@ function i18n_page_menu_items() {
         );
       }
       if ($localize) {
-        $items[$path . '/%language'] = array(
+        $items[$path . '/%i18n_language'] = array(
           'title' => 'Translate',
           'page callback' => $page_callback,
           'page arguments' => array($type, $position, count($parts)),
           'access callback' => 'i18n_object_translate_access',
           'access arguments' => array($type, $position),
           'type' => MENU_CALLBACK,
-          'field' => 'i18n.pages.inc',
+          'file' => 'i18n.pages.inc',
         );
       }
     }

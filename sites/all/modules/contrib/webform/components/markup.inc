@@ -17,6 +17,7 @@ function _webform_defaults_markup() {
     'value' => '',
     'extra' => array(
       'format' => NULL,
+      'private' => FALSE,
     ),
   );
 }
@@ -35,9 +36,6 @@ function _webform_edit_markup($component) {
     '#format' => $component['extra']['format'],
     '#element_validate' => array('_webform_edit_markup_validate'),
   );
-
-  $form['extra']['description'] = array(); // No description for markup.
-  $form['display'] = array('#type' => 'markup'); // Hide the display options.
 
   return $form;
 }
@@ -61,9 +59,9 @@ function _webform_render_markup($component, $value = NULL, $filter = TRUE) {
     '#title' => $filter ? NULL : $component['name'],
     '#weight' => $component['weight'],
     '#markup' => $filter ? _webform_filter_values(check_markup($component['value'], $component['extra']['format'], '', TRUE), NULL, NULL, NULL, FALSE) : $component['value'],
-    '#input_format' => $component['extra']['format'],
+    '#format' => $component['extra']['format'],
     '#theme_wrappers' => array('webform_element'),
-    '#webform_component' => $component,
+    '#translatable' => array('title', 'markup'),
   );
 
   // TODO: Remove when #markup becomes available in D7.

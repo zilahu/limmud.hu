@@ -84,7 +84,7 @@ function _jquery_countdown_block_content($delta = '') {
   
   $until = date("F d, Y g:i a", strtotime(variable_get('jquery_countdown_target', '')));
 
-  $description = t('Until @event_name', array('@event_name' => $event_name));
+  $description = t(variable_get('jquery_countdown_description', 'Until @event_name') . ' ', array('@event_name' => $event_name));
   
   $options = array(
     'until' => $until,

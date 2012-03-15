@@ -366,7 +366,7 @@ function rules_action_data_list_add_positions() {
  * Options list callback for variable add action.
  */
 function rules_data_action_variable_add_options() {
-  return RulesPluginUI::getOptions('data_info');
+  return RulesPluginUI::getOptions('data');
 }
 
 /**
@@ -420,6 +420,7 @@ function rules_data_condition_info() {
           'type' => '*',
           'label' => t('Data to compare'),
           'description' => t('The data to be compared, specified by using a data selector, e.g. "node:author:name".'),
+          'allow null' => TRUE,
         ),
         'op' => array(
           'type' => 'text',
@@ -434,6 +435,7 @@ function rules_data_condition_info() {
           'type' => '*',
           'label' => t('Data value'),
           'description' => t('The value to compare the data with.'),
+          'allow null' => TRUE,
         ),
       ),
       'group' => t('Data'),

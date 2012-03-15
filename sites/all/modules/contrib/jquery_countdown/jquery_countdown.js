@@ -10,24 +10,27 @@
     if (Drupal.settings.jquery_countdown) {
       // Loop through all the jQuery Countdown settings.
       jQuery.each(Drupal.settings.jquery_countdown, function(countdown, options) {
-        // Process the date properties if available.
-        if (typeof (options.until) != "undefined") {
-          options.until = Drupal.jQueryCountdownProcessDate(options.until);
-        }
-        if (typeof (options.since) != "undefined") {
-          options.since = Drupal.jQueryCountdownProcessDate(options.since);
-        }
 
-        // Evaluate the callbacks as function names.
-        if (typeof (options.onExpiry) == "string") {
-          options.onExpiry = eval(options.onExpiry);
-        }
-        if (typeof (options.onTick) == "string") {
-          options.onTick = eval(options.onTick);
-        }
+        $(countdown + ':not(.jquery-countdown-processed)', context).addClass('jquery-countdown-processed').each(function(){
+            // Process the date properties if available.
+            if (typeof (options.until) != "undefined") {
+              options.until = Drupal.jQueryCountdownProcessDate(options.until);
+            }
+            if (typeof (options.since) != "undefined") {
+              options.since = Drupal.jQueryCountdownProcessDate(options.since);
+            }
 
-        // Create the countdown element on non-processed elements.
-        $(countdown + ':not(.jquery-countdown-processed)', context).addClass('jquery-countdown-processed').countdown(options);
+            // Evaluate the callbacks as function names.
+            if (typeof (options.onExpiry) == "string") {
+              options.onExpiry = eval(options.onExpiry);
+            }
+            if (typeof (options.onTick) == "string") {
+              options.onTick = eval(options.onTick);
+            }
+
+            $(this).countdown(options);
+        });
+
       });
     }
     }

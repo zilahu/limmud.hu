@@ -41,6 +41,7 @@ function nodereference_url_field_widget_info() {
         'fallback' => 'select',
         'node_link' => array(),
         'edit_fallback' => 0,
+        'autocomplete_match' => 'contains',
       ),
     ),
   );
@@ -104,8 +105,8 @@ function nodereference_url_build_all_links($node, $view_mode) {
  *
  * @param $node
  *   A fully loaded node object.
- * @param $field
- *   A CCK field instance.
+ * @param $instance
+ *   A field instance.
  * @param $teaser
  *   Optional. The current display mode of the node. Defaults to 'full'.
  * @param $alt_format
@@ -115,11 +116,15 @@ function nodereference_url_build_all_links($node, $view_mode) {
  * @return
  *   An array containing properties to build a single link.
  */
-function nodereference_url_build_link($node, $field, $view_mode = 'full', $alt_format = FALSE) {
+function nodereference_url_build_link($node, $instance, $view_mode = 'full', $alt_format = FALSE) {
   $link = array();
 
+  // Load the $field, which contains field-level configuration (such as the
+  // Views and content type settings).
+  $field = field_info_field($instance['field_name']);
+
   // Check if this widget is using a views listing.
-  if (module_exists('views') && isset($field['advanced_view']) && !empty($field['advanced_view']) && $field['advanced_view'] != '--') {
+  if (module_exists('views') && !empty($field['settings']['view']['view_name'])) {
     // TODO: Remove legacy function after final release of References module.
     if (function_exists('node_reference_potential_references')) {
       $referenceable = (bool) node_reference_potential_references($field, array('ids' => array($node->nid), 'limit' => 1));
@@ -130,12 +135,11 @@ function nodereference_url_build_link($node, $field, $view_mode = 'full', $alt_f
   }
   // Otherwise restrict by node type.
   else {
-    $field_info = field_info_field($field['field_name']);
-    $referenceable = !empty($field_info['settings']['referenceable_types'][$node->type]);
+    $referenceable = !empty($field['settings']['referenceable_types'][$node->type]);
   }
 
-  if ($referenceable && node_access('create', $field['bundle'])) {
-    $link_settings = $field['widget']['settings']['node_link'];
+  if ($referenceable && node_access('create', $instance['bundle'])) {
+    $link_settings = $instance['widget']['settings']['node_link'];
     if (!empty($link_settings[$view_mode])) {
       $link['title'] = t($link_settings['title']);
       $link['query'] = array();
@@ -145,12 +149,12 @@ function nodereference_url_build_link($node, $field, $view_mode = 'full', $alt_f
 
       // Basic wildcard replacement: %type and %nid.
       $link_url = $link_urls[0];
-      $link_url = str_replace('%type', str_replace('_', '-', $field['bundle']), $link_url);
+      $link_url = str_replace('%type', str_replace('_', '-', $instance['bundle']), $link_url);
       if ($alt_format) {
         // The alternative format is used when there are multiple fields on the
         // node edit form, so we can't just add an parameter at the end for NID.
         $link_url = preg_replace('!/%nid$!', '', $link_url);
-        $field_name = str_replace('field_', '', $field['field_name']);
+        $field_name = str_replace('field_', '', $instance['field_name']);
         $link['query'][$field_name] = $node->nid;
       }
       else {
@@ -169,7 +173,7 @@ function nodereference_url_build_link($node, $field, $view_mode = 'full', $alt_f
           $link['query']['destination'] = drupal_get_path_alias('node/'. $node->nid);
         }
       }
-      if (module_exists('og')) {
+      if (module_exists('og_context')) {
         // First try to get context based on the current page URL.
         $group_entity = og_get_context_by_url();
 
@@ -207,9 +211,9 @@ function nodereference_url_build_link($node, $field, $view_mode = 'full', $alt_f
  */
 function nodereference_url_create_link($node, $field_name, $type_name, $attributes = array()) {
   $output = '';
-  $field = content_fields($field_name, $type_name);
-  $field['widget']['node_link']['full'] = TRUE;
-  if ($link = nodereference_url_build_link($node, $field)) {
+  $instance = field_info_instance('node', $field_name, $type_name);
+  $instance['widget']['settings']['node_link']['full'] = TRUE;
+  if ($link = nodereference_url_build_link($node, $instance)) {
     $options = array();
     $link_attributes = isset($link['attributes']) ? (array) $link['attributes'] : array();
     $options['attributes'] = $attributes + $link_attributes;
@@ -271,11 +275,27 @@ function nodereference_url_field_widget_settings_form($field, $instance) {
       '#element_validate' => array('nodereference_url_fallback_validate'),
       '#weight' => -11,
     );
+    $form['autocomplete_match'] = array(
+      '#type' => 'select',
+      '#title' => t('Autocomplete matching'),
+      '#default_value' => $settings['autocomplete_match'],
+      '#options' => array(
+        'starts_with' => t('Starts with'),
+        'contains' => t('Contains'),
+      ),
+      '#description' => t('Select the method used to collect autocomplete suggestions. <br /> Note that <em>Contains</em> can cause performance issues on sites with thousands of nodes.'),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="instance[widget][settings][fallback]"]' => array('value' => 'autocomplete'),
+        ),
+      ),
+      '#weight' => -10,
+    );
     $form['edit_fallback'] = array(
       '#type' => 'checkbox',
       '#title' => t('Use fallback behavior when editing content'),
       '#default_value' => isset($settings['edit_fallback']) ? $settings['edit_fallback'] : FALSE,
-      '#weight' => -10,
+      '#weight' => -9,
     );
 
     $form['node_link'] = array(
@@ -417,7 +437,7 @@ function nodereference_url_field_widget_form(&$form, &$form_state, $field, $inst
       $element += array(
         '#type' => 'textfield',
         '#default_value' => isset($items[$delta]['nid']) ? $items[$delta]['nid'] : NULL,
-        '#autocomplete_path' => 'node_reference/autocomplete/' . $instance['entity_type'] . '/' . $field['field_name'],
+        '#autocomplete_path' => 'node_reference/autocomplete/' . $instance['entity_type'] . '/' . $instance['bundle'] . '/' . $field['field_name'],
         '#value_callback' => 'node_reference_autocomplete_value',
         '#element_validate' => array('node_reference_autocomplete_validate'),
       );

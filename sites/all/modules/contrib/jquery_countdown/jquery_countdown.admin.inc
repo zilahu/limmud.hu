@@ -33,6 +33,16 @@ function jquery_countdown_admin() {
     '#default_value' => variable_get('jquery_countdown_target', '')
   );
   
+  $form['jquery_countdown_description'] = array(
+    '#title' => t('Countdown description'),
+    '#description' => t('Enter the description to go below the countdown. You may use <strong>@event_name</strong> as a special token in this field that will be replaced with the dynamic value of the event name. The default is "Until <strong>@event_name</strong>". If you do not wish to have a description, simply leave this field blank.'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('jquery_countdown_description', 'Until @event_name'),
+    '#max_length' => 250,
+    '#size' => 80,
+    '#required' => FALSE
+  );
+  
   $form['jquery_countdown_exp_txt'] = array(
     '#title' => t('Expiry Text'),
     '#description' => t('Enter the message that will be shown when the countdown reaches zero.'),

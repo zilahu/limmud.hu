@@ -13,9 +13,9 @@ files[] = jquery_countdown.rules.inc
 files[] = jquery_countdown.admin.inc
 files[] = jquery_countdown.pages.inc
 
-; Information added by drupal.org packaging script on 2011-05-16
+; Information added by drupal.org packaging script on 2011-11-15
 version = "7.x-1.x-dev"
 core = "7.x"
 project = "jquery_countdown"
-datestamp = "1305547733"
+datestamp = "1321359418"
 

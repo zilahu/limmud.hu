@@ -24,6 +24,7 @@ function _webform_defaults_time() {
       'hourformat' => '12-hour',
       'title_display' => 0,
       'description' => '',
+      'private' => FALSE,
     ),
   );
 }
@@ -35,9 +36,11 @@ function _webform_theme_time() {
   return array(
     'webform_time' => array(
       'render element' => 'element',
+      'file' => 'components/time.inc',
     ),
     'webform_display_time' => array(
       'render element' => 'element',
+      'file' => 'components/time.inc',
     ),
   );
 }
@@ -95,7 +98,7 @@ function _webform_render_time($component, $value = NULL, $filter = TRUE) {
     '#process' => array('webform_expand_time'),
     '#theme' => 'webform_time',
     '#theme_wrappers' => array('webform_element'),
-    '#webform_component' => $component,
+    '#translatable' => array('title', 'description'),
   );
 
   // Set the value from Webform if available.
@@ -242,7 +245,7 @@ function _webform_display_time($component, $value, $format = 'html') {
     '#format' => $format,
     '#hourformat' => $component['extra']['hourformat'],
     '#value' => $value,
-    '#webform_component' => $component,
+    '#translatable' => array('title'),
   );
 }
 
