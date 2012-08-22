@@ -1,18 +1,4 @@
 <?php
-function limmud_nice_menus_menu_item_link($variables) {
-  global $user;
-  
-  if (empty($variables['element']['#localized_options'])) {
-    $variables['element']['#localized_options'] = array();
-  }
-  
-  if ($variables['element']['#href'] == 'http://szervezes.limmud.hu' && (!in_array('administrator', $user->roles) && !in_array('szerkéntes', $user->roles))) {
-     return "";
-  }
-  
-  return l($variables['element']['#title'], $variables['element']['#href'], $variables['element']['#localized_options']);
-}
-
 
 /**
 * Implements hook_form_FORM_ID_alter().

@@ -7,6 +7,47 @@
  * other modules.
  */
 
+
+
+/*
+ * Implement hook_permission().
+ */
+function limmudhelper_permission() {
+  return array(
+    'access intranet content' => array(
+      'title' => t('Access Intranet content'),
+      'description' => t('Access the intranet content.'),
+    ),
+  );
+}
+
+
+/**
+ * Access callback to determine if the user can import Views.
+ *
+ * View imports require an additional access check because they are PHP
+ * code and PHP is more locked down than administer views.
+ */
+function limmudhelper_import_access() {
+  return user_access('access intranet content');
+}
+
+function limmudhelper_menu() {
+    
+    $items['szervezes'] = array(
+      'title' => 'Szervezés',
+      'type' => MENU_NORMAL_ITEM,
+      'access callback' => 'user_access',
+      'access arguments' => array('access intranet content'),
+      'page callback' => 'drupal_goto',
+      'page arguments' => array('http://szervezes.limmud.hu/'),
+      'menu_name' => 'main-menu',
+    );
+    
+    return $items;
+}
+
+
 /**
  * Implements hook_block_info().
  *
