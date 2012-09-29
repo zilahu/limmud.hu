@@ -1,5 +1,4 @@
 <?php
-// ; $Id: imagecache_profiles.module,v 1.21 2010/12/24 13:26:30 andypost Exp $
 
 /**
  * Implements hook_help().
@@ -126,7 +125,7 @@ function imagecache_profiles_form_user_admin_settings_alter(&$form, $form_state)
 /**
  * Implements hook_file_validate().
  */
-function imagecache_profiles_file_validate(&$file) {
+function imagecache_profiles_file_validate($file) {
   if ($file->source == 'picture_upload') {
     $width = variable_get('user_picture_imagecache_profiles_min_width', 0);
     $height = variable_get('user_picture_imagecache_profiles_min_height', 0);
@@ -150,14 +149,16 @@ function imagecache_profiles_image_style_delete($style) {
 function imagecache_profiles_image_style_save($style) {
   // If a style is renamed, update the variables that use it.
   if (isset($style['old_name'])) {
-    if ($style['old_name'] == variable_get('user_picture_style_profiles')) {
-      variable_set('user_picture_style_profiles', $style['name']);
-    }
-    if ($style['old_name'] == variable_get('user_picture_style_comments')) {
-      variable_set('user_picture_style_comments', $style['name']);
-    }
-    if ($style['old_name'] == variable_get('user_picture_style_nodes')) {
-      variable_set('user_picture_style_nodes', $style['name']);
+    // TODO: Make list of vars alterable.
+    $vars = array(
+      'user_picture_style_profiles',
+      'user_picture_style_comments',
+      'user_picture_style_nodes',
+    );
+    foreach ($vars as $var) {
+      if ($style['old_name'] == variable_get($var)) {
+        variable_set($var, $style['name']);
+      }
     }
   }
 }

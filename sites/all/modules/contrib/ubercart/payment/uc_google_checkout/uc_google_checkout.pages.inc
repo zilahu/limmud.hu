@@ -67,7 +67,6 @@ function uc_google_checkout_merchant_calculation() {
     $merchant_key = variable_get('uc_google_checkout_test_merchant_key', '');
   }
 
-  //watchdog('google', check_plain($_SERVER['PHP_AUTH_USER']), NULL, WATCHDOG_NOTICE);
   if ($_SERVER['PHP_AUTH_USER'] != $merchant_id || $_SERVER['PHP_AUTH_PW'] != $merchant_key) {
     watchdog('google', 'HTTP Authorization header does not match settings.', array(), WATCHDOG_ERROR);
     return MENU_ACCESS_DENIED;
@@ -109,7 +108,7 @@ function uc_google_checkout_merchant_calculation() {
 
   $order->order_total = uc_order_get_total($order, TRUE);
 
-  $methods = module_invoke_all('shipping_method');
+  $methods = module_invoke_all('uc_shipping_method');
   module_load_include('inc', 'uc_quote', 'uc_quote.pages');
   $quote_data = uc_quote_assemble_quotes($order);
   $results = '';

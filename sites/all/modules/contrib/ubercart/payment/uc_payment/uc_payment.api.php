@@ -42,7 +42,7 @@ function hook_uc_payment_entered($order, $method, $amount, $account, $data, $com
 /**
  * Registers payment gateway callbacks.
  *
- * @see http://www.ubercart.org/docs/api/hook_payment_gateway
+ * @see http://www.ubercart.org/docs/api/hook_uc_payment_gateway
  *
  * @return
  *   Returns an array of payment gateways, keyed by the gateway ID, and with
@@ -56,13 +56,13 @@ function hook_uc_payment_entered($order, $method, $amount, $account, $data, $com
  *   - "settings"
  *     - type: string
  *     - value: The name of a function that returns an array of settings form
- *         elements for the gateway.
+ *       elements for the gateway.
  *   - Other keys are payment method IDs, with the value as the name of the
  *     gateway charge function.
  */
 function hook_uc_payment_gateway() {
   $gateways['test_gateway'] = array(
-    'title' => t('Test Gateway'),
+    'title' => t('Test gateway'),
     'description' => t('Process credit card payments through the Test Gateway.'),
     'credit' => 'test_gateway_charge',
   );
@@ -70,10 +70,11 @@ function hook_uc_payment_gateway() {
 }
 
 /**
- * Alter payment gateways.
+ * Alters payment gateways.
  *
  * @param $gateways
- *   Payment gateways passed by reference.
+ *   Array of payment gateways passed by reference.  Array is structured like
+ *   the return value of hook_uc_payment_gateway().
  */
 function hook_uc_payment_gateway_alter(&$gateways) {
   // Change the title of the test gateway.
@@ -95,13 +96,25 @@ function hook_uc_payment_gateway_alter(&$gateways) {
 function hook_uc_payment_method() {
   $methods['check'] = array(
     'name' => t('Check'),
-    'title' => t('Check or Money Order'),
+    'title' => t('Check or money order'),
     'desc' => t('Pay by mailing a check or money order.'),
     'callback' => 'uc_payment_method_check',
     'weight' => 1,
     'checkout' => TRUE,
   );
   return $methods;
+}
+
+/**
+ * Alter payment methods.
+ *
+ * @param $methods
+ *   Array of payment methods passed by reference.  Array is structured like
+ *   the return value of hook_uc_payment_method().
+ */
+function hook_uc_payment_method_alter(&$methods) {
+  // Change the title of the Check payment method.
+  $methods['check']['title'] = t('Cheque');
 }
 
 /**

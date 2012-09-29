@@ -56,14 +56,12 @@ function uc_store_admin() {
         case 'error':   $icon = 'error.gif'; break;
         default:        $icon = 'info.gif';
       }
+      $icon = theme('image', array('path' => drupal_get_path('module', 'uc_store') . '/images/' . $icon));
 
       $rows[] = array(
-        'data' => array(
-          array('data' => theme('image', array('path' => drupal_get_path('module', 'uc_store') . '/images/' . $icon))),
-          array('data' => '<strong>' . $message['title'] . '</strong>', 'nowrap' => 'nowrap'),
-          array('data' => $message['desc'], 'width' => '100%')
-        ),
-        'valign' => 'top',
+        array('data' => $icon, 'class' => array('icon')),
+        array('data' => $message['title'], 'class' => array('title')),
+        array('data' => $message['desc'], 'class' => array('message')),
       );
     }
 
@@ -71,272 +69,11 @@ function uc_store_admin() {
       '#theme' => 'table',
       '#caption' => '<h2>' . t('Store status') . '</h2>',
       '#rows' => $rows,
+      '#attributes' => array('class' => array('uc-store-status')),
     );
   }
 
   return $build;
-}
-
-/**
- * Displays customer administration page.
- */
-function uc_store_customers($message = NULL, $query = NULL, $page_length = 25) {
-  if (!module_exists('uc_order')) {
-    return t('You must enable the order module to track customers.');
-  }
-
-  $address = variable_get('uc_customer_list_address', 'billing');
-  if ($address == 'shipping') {
-    $address = 'delivery';
-  }
-
-  if (is_null($query)) {
-    $query = uc_store_customer_query($page_length);
-  }
-
-  $header = array(
-    t('View'),
-    array('data' => t('Name'), 'field' => 'o.' . $address . '_last_name', 'sort' => 'asc'),
-    array('data' => t('E-mail'), 'field' => 'u.mail'),
-    array('data' => t('City'), 'field' => 'o.' . $address . '_city'),
-    array('data' => t('ID'), 'field' => 'o.uid'),
-  );
-  $rows = array();
-
-  $query = $query->extend('TableSort')
-    ->orderByHeader($header);
-
-  $result = $query->execute();
-
-  foreach ($result as $customer) {
-    $icons = l(uc_store_get_icon('admin/store/customers', TRUE),
-               'user/' . $customer->uid,
-               array('html' => TRUE, 'attributes' => array('title' => t('View user details.')))
-             )
-           . l(uc_store_get_icon('admin/store/orders', TRUE),
-               'admin/store/customers/orders/' . $customer->uid,
-               array('html' => TRUE, 'attributes' => array('title' => t("View customer's order.")))
-             );
-    if ($address == 'delivery') {
-      $name = ucfirst($customer->delivery_last_name) . ', '
-            . ucfirst($customer->delivery_first_name);
-      $city = ucfirst($customer->delivery_city) . ', '
-            . uc_get_zone_code($customer->delivery_zone);
-    }
-    else {
-      $name = ucfirst($customer->billing_last_name) . ', '
-            . ucfirst($customer->billing_first_name);
-      $city = ucfirst($customer->billing_city) . ', '
-            . uc_get_zone_code($customer->billing_zone);
-    }
-    if ($name == ', ') {
-      $name = db_query("SELECT name FROM {users} WHERE uid = :uid", array(':uid' => $customer->uid))->fetchField();
-      $name = t('User: !name', array('!name' => $name));
-    }
-    $rows[] = array(
-      'data' => array(
-        array('data' => $icons),
-        array('data' => check_plain($name)),
-        array('data' => check_plain($customer->mail)),
-        array('data' => check_plain($city)),
-        array('data' => $customer->uid)),
-      'id' => 'customer-' . $customer->uid,
-    );
-  }
-
-  drupal_add_js(drupal_get_path('module', 'uc_store') . '/uc_store.js');
-
-  $build = array();
-
-  $build['customers'] = array(
-    '#theme' => 'table',
-    '#header' => $header,
-    '#rows' => $rows,
-    '#attributes' => array('width' => '100%', 'class' => array('uc-customer-table')),
-  );
-  $build['pager'] = array(
-    '#theme' => 'pager',
-    '#weight' => 5,
-  );
-
-  return $build;
-}
-
-/**
- * Assembles a query to list store customers.
- */
-function uc_store_customer_query($page_length = 25) {
-  $address = variable_get('uc_customer_list_address', 'billing');
-  if ($address == 'shipping') {
-    $address = 'delivery';
-  }
-
-  $query = db_select('uc_orders', 'o');
-  $query->leftJoin('users', 'u', 'o.uid = u.uid');
-
-  $o_uid = $query->addField('o', 'uid');
-  $o_status = $query->addField('o', 'order_status');
-  $query->fields('o', array(
-      $address . '_first_name',
-      $address . '_last_name',
-      $address . '_city',
-      $address . '_zone',
-      $address . '_country'
-    ))
-    ->addField('u', 'mail');
-
-  $query->condition('o.uid', 0, '>')
-    ->condition('o.order_status', uc_order_status_list('general', TRUE), 'IN');
-
-  $query = $query->extend('PagerDefault');
-  $query->distinct()
-    ->limit($page_length);
-
-  return $query;
-}
-
-/**
- * Displays the customer search page.
- */
-function uc_store_customer_search() {
-  $build = array();
-  $build['form'] = drupal_get_form('uc_store_customer_search_form');
-
-  if (arg(4) == 'results') {
-    $address = variable_get('uc_customer_list_address', 'billing');
-    if ($address == 'shipping') {
-      $address = 'delivery';
-    }
-
-    $query = uc_store_customer_query();
-
-    $first_name = str_replace('*', '%', db_like(arg(5)));
-    $last_name = str_replace('*', '%', db_like(arg(6)));
-    $email = str_replace('*', '%', db_like(arg(7)));
-
-    if ($first_name !== '0' && $first_name !== '%') {
-      $query->condition('o.' . $address . '_first_name', $first_name, 'LIKE');
-    }
-    if ($last_name !== '0' && $last_name !== '%') {
-      $query->condition('o.' . $address . '_last_name', $last_name, 'LIKE');
-    }
-    if ($email !== '0' && $email !== '%') {
-      $query->addField('o', 'primary_email');
-      $query->condition('o.primary_email', $email, 'LIKE');
-    }
-
-    $message = t('Search returned the following results:');
-
-    $build['results'] = uc_store_customers($message, $query, 100);
-  }
-
-  return $build;
-}
-
-/**
- * Form builder for the customer search form.
- *
- * @see uc_store_customer_search_form_submit()
- * @ingroup forms
- */
-function uc_store_customer_search_form($form, &$form_state) {
-  $form['search'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Search options'),
-    '#description' => t('Search for customers based on any of the following fields. Use * as a wildcard to match any character.') . '<br />' . t("For example, searching by last name for 's*' will return all customers whose last name starts with an s.") . '<br />' . t('(<em>Leave a field empty to ignore it in the search.</em>)'),
-    '#collapsible' => TRUE,
-    '#collapsed' => arg(4) == 'results' ? TRUE : FALSE,
-    '#theme' => 'uc_store_customer_search_fieldset',
-  );
-
-  $form['search']['first_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('First name'),
-    '#default_value' => arg(5) != '0' ? arg(5) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['last_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Last name'),
-    '#default_value' => arg(6) != '0' ? arg(6) : '',
-    '#size' => 24,
-    '#maxlength' => 32,
-  );
-
-  $form['search']['email'] = array(
-    '#type' => 'textfield',
-    '#title' => t('E-mail'),
-    '#default_value' => arg(7) != '0' ? arg(7) : '',
-    '#size' => 24,
-    '#maxlength' => 96,
-  );
-
-  $form['search']['actions'] = array('#type' => 'actions');
-  $form['search']['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Search'),
-  );
-
-  return $form;
-}
-
-/**
- * Returns HTML for the customer search fieldset
- *
- * @ingroup themeable
- */
-function theme_uc_store_customer_search_fieldset($variables) {
-  $form = $variables['form'];
-
-  $output = '<table><tbody style="border: 0px;"><tr><td>';
-  $output .= drupal_render($form['first_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['last_name']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['email']);
-
-  $output .= '</td><td>';
-  $output .= drupal_render($form['submit']);
-
-  $output .= '</td></tr></tbody></table>';
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
-/**
- * Form submission handler for uc_store_customer_search_form().
- *
- * @see uc_store_customer_search_form()
- */
-function uc_store_customer_search_form_submit($form, &$form_state) {
-  if (strlen(trim($form_state['values']['first_name'])) == 0) {
-    $first_name = '0';
-  }
-  else {
-    $first_name = strtolower(trim($form_state['values']['first_name']));
-  }
-
-  if (strlen(trim($form_state['values']['last_name'])) == 0) {
-    $last_name = '0';
-  }
-  else {
-    $last_name = strtolower(trim($form_state['values']['last_name']));
-  }
-
-  if (strlen(trim($form_state['values']['email'])) == 0) {
-    $email = '0';
-  }
-  else {
-    $email = strtolower(trim($form_state['values']['email']));
-  }
-
-  drupal_goto('admin/store/customers/search/results/' . $first_name . '/'
-            . $last_name . '/' . $email);
 }
 
 /**
@@ -346,10 +83,6 @@ function uc_store_reports() {
   $menu = menu_get_item('admin/store/reports');
   $content = system_admin_menu_block($menu);
 
-  $build = array();
-  $build['message'] = array(
-    '#markup' => (module_exists('uc_reports')) ? t('Various reports generated by Ubercart modules can be found here. Click the links below to view the reports.') : t('Various reports generated by Ubercart modules can be found here. Click the links below to view the reports. To view core Ubercart statistics enable the <strong>Reports</strong> module on the <a href="!url">module administration page</a>', array('!url' => url('admin/modules'))),
-  );
   $build['menu'] = array(
     '#theme' => 'admin_block_content',
     '#content' => $content,
@@ -375,197 +108,157 @@ function uc_store_configuration_page() {
 }
 
 /**
- * Imports settings from a country file.
+ * Form to configure address fields.
  *
- * @see uc_country_import_form_submit()
+ * @see uc_store_address_fields_form_submit()
+ * @see uc_store_address_fields_form_reset()
+ * @see theme_uc_store_address_fields_form()
  * @ingroup forms
  */
-function uc_country_import_form($form, &$form_state) {
-  $countries = array();
-  $result = db_query("SELECT * FROM {uc_countries}");
-  foreach ($result as $country) {
-    $countries[t($country->country_name)] = $country;
-  }
-  uksort($countries, 'strnatcasecmp');
-  $files = _uc_country_import_list();
-
-  $header = array(t('Country'), t('Code'), t('Version'), t('Operations'));
-  $rows = array();
-  if (is_array($countries)) {
-    foreach ($countries as $country) {
-      $row = array(
-        t($country->country_name),
-        $country->country_iso_code_3,
-        array('data' => abs($country->version), 'align' => 'center')
-      );
-
-      $ops = array();
-      if ($country->version < 0) {
-        $ops[] = l(t('enable'), 'admin/store/settings/countries/' . $country->country_id . '/enable');
-      }
-      else {
-        $ops[] = l(t('disable'), 'admin/store/settings/countries/' . $country->country_id . '/disable');
-      }
-      if ($country->version < $files[$country->country_id]['version'] && $country->version > 0) {
-        $ops[] = l(t('update'), 'admin/store/settings/countries/' . $country->country_id . '/update/' . $files[$country->country_id]['version']);
-      }
-      $ops[] = l(t('remove'), 'admin/store/settings/countries/' . $country->country_id . '/remove');
-      $row[] = implode(' ', $ops);
-
-      $rows[] = $row;
-      unset($files[$country->country_id]);
-    }
-  }
-
-  $import_list = array();
-  foreach ($files as $file) {
-    $import_list[$file['file']] = $file['file'];
-  }
-  if (is_array($import_list)) {
-    ksort($import_list);
-  }
-
-  if (is_array($import_list)) {
-    $options = $import_list;
-  }
-  else {
-    $options = array(t('-None available-'));
-  }
-
-  $form['country_import'] = array(
-    '#title' => t('Import countries'),
-    '#type' => 'fieldset',
-    '#collapsed' => TRUE,
-    '#collapsible' => TRUE,
+function uc_store_address_fields_form($form, &$form_state) {
+  $form['fields'] = array(
+    '#tree' => TRUE,
   );
 
-  $form['country_import']['text'] = array(
-    '#markup' => '<p>' . t('To import new country data, select it in the list and click the import button. If you are using a custom or contributed import file, it must be placed in the Ubercart folder uc_store/countries.') . '</p>',
+  $fields = array(
+    'first_name' => t('First name'),
+    'last_name' => t('Last name'),
+    'company' => t('Company'),
+    'street1' => t('Street address 1'),
+    'street2' => t('Street address 2'),
+    'city' => t('City'),
+    'zone' => t('State/Province'),
+    'country' => t('Country'),
+    'postal_code' => t('Postal code'),
+    'phone' => t('Phone number'),
   );
-  $form['country_import']['import_file'] = array(
-    '#type' => 'select',
-    '#title' => t('Country'),
-    '#options' => $options,
-    '#disabled' => !is_array($import_list),
-    '#multiple' => is_array($import_list),
-    '#size' => min(10, count($options)),
-  );
-  $form['country_import']['actions'] = array('#type' => 'actions');
-  $form['country_import']['actions']['import_button'] = array(
-    '#type' => 'submit',
-    '#value' => t('Import'),
-    '#disabled' => !is_array($import_list),
-  );
-  $form['country_table'] = array(
-    '#theme' => 'table',
-    '#header' => $header,
-    '#rows' => $rows,
-  );
-
-  return $form;
-}
-
-/**
- * Form submission handler for uc_country_import_form().
- *
- * @see uc_country_import_form()
- */
-function uc_country_import_form_submit($form, &$form_state) {
-  $files = $form_state['values']['import_file'];
-
-  foreach ($files as $file) {
-    if (uc_country_import($file)) {
-      drupal_set_message(t('Country file @file imported.', array('@file' => $file)));
-    }
-    else {
-      drupal_set_message(t('Country file @file could not import or had no install function.', array('@file' => $file)), 'error');
-    }
-  }
-}
-
-/**
- * Form builder to set country address formats.
- *
- * @see uc_country_formats_form_submit()
- * @ingroup forms
- */
-function uc_country_formats_form($form, &$form_state) {
-  $form['instructions'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Address format variables'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $header = array(t('Variable'), t('Description'));
-  $rows = array(
-    array('!first_name', t("Customer's first name")),
-    array('!last_name', t("Customer's last name")),
-    array('!company', t('Company name')),
-    array('!street1', t('First street address field')),
-    array('!street2', t('Second street address field')),
-    array('!city', t('City name')),
-    array('!zone_name', t('Full name of the zone')),
-    array('!zone_code', t('Abbreviation of the zone')),
-    array('!postal_code', t('Postal code')),
-    array('!country_name', t('Name of the country')),
-    array('!country_code2', t('2 digit country abbreviation')),
-    array('!country_code3', t('3 digit country abbreviation')),
-  );
-  $form['instructions']['text'] = array(
-    '#theme' => 'table',
-    '#header' => $header,
-    '#rows' => $rows,
-    '#prefix' => '<div><p>' . t('The following variables should be used in configuring addresses for the countries you ship to:') . '</p>',
-    '#suffix' => '<p>' . t('Adding _if to any country variable will make it display only for addresses whose country is different than the default store country.') . '</p></div>',
-  );
-
-  $countries = array();
-  $result = db_query("SELECT * FROM {uc_countries}");
-  foreach ($result as $country) {
-    $countries[t($country->country_name)] = $country;
-  }
-  uksort($countries, 'strnatcasecmp');
-
-  if (is_array($countries)) {
-    $form['countries'] = array(
-      '#type' => 'vertical_tabs',
-      '#tree' => TRUE,
+  $current = variable_get('uc_address_fields', drupal_map_assoc(array('first_name', 'last_name', 'phone', 'company', 'street1', 'street2', 'city', 'zone', 'postal_code', 'country')));
+  $required = variable_get('uc_address_fields_required', drupal_map_assoc(array('first_name', 'last_name', 'street1', 'city', 'zone', 'postal_code', 'country')));
+  $weight = uc_store_address_field_weights();
+  foreach ($fields as $field => $label) {
+    $form['fields'][$field]['enabled'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => isset($current[$field]) ? TRUE : FALSE,
     );
-    foreach ($countries as $country) {
-      $form['countries'][$country->country_id] = array(
-        '#type' => 'fieldset',
-        '#title' => t($country->country_name),
-        '#group' => 'country',
-      );
-      $form['countries'][$country->country_id]['address_format'] = array(
-        '#type' => 'textarea',
-        '#title' => t('@country address format', array('@country' => t($country->country_name))),
-        '#default_value' => variable_get('uc_address_format_' . $country->country_id, ''),
-        '#description' => t('Use the variables mentioned in the instructions to format an address for this country.'),
-        '#rows' => 6,
-      );
-    }
+    $form['fields'][$field]['required'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => isset($required[$field]) ? TRUE : FALSE,
+    );
+    $form['fields'][$field]['weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => (isset($weight[$field])) ? $weight[$field] : 0,
+      '#attributes' => array('class' => array('uc-store-address-fields-weight')),
+    );
+    $form['fields'][$field]['default'] = array(
+      '#markup' => $label,
+    );
+    $form['fields'][$field]['title'] = array(
+      '#type' => 'textfield',
+      '#default_value' => uc_get_field_name($field),
+      '#size' => 32,
+    );
+    $form['fields'][$field]['#weight'] = (isset($weight[$field])) ? $weight[$field] : 99;
   }
 
   $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array(
+  $form['actions']['save'] = array(
     '#type' => 'submit',
-    '#value' => t('Submit changes'),
+    '#value' => t('Save configuration'),
+  );
+  $form['actions']['reset'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reset to defaults'),
+    '#submit' => array('uc_store_address_fields_form_reset'),
   );
 
   return $form;
 }
 
 /**
- * Form submission handler for uc_country_formats_form().
+ * Returns HTML for uc_store_address_fields_form().
  *
- * @see uc_country_formats_form()
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
+ * @see uc_store_address_fields_form()
+ * @ingroup themeable
  */
-function uc_country_formats_form_submit($form, &$form_state) {
-  foreach ($form_state['values']['countries'] as $country_id => $data) {
-    variable_set('uc_address_format_' . $country_id, $data['address_format']);
+function theme_uc_store_address_fields_form($variables) {
+  $form = $variables['form'];
+
+  $header = array(t('Field'), t('Title'), t('Enabled'), t('Required'), t('List position'));
+
+  // Sort fields by weight
+  uasort($form['fields'], 'element_sort');
+
+  foreach (element_children($form['fields']) as $field) {
+    $row = array(
+      drupal_render($form['fields'][$field]['default']),
+      drupal_render($form['fields'][$field]['title']),
+      drupal_render($form['fields'][$field]['enabled']),
+      drupal_render($form['fields'][$field]['required']),
+      drupal_render($form['fields'][$field]['weight']),
+    );
+
+    $rows[] = array(
+      'data' => $row,
+      'class' => array('draggable'),
+    );
   }
-  drupal_set_message(t('Country settings saved.'));
+
+  drupal_add_tabledrag('uc-store-address-fields-weight-table', 'order', 'sibling', 'uc-store-address-fields-weight');
+
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array('id' => 'uc-store-address-fields-weight-table'),
+  ));
+  $output .= drupal_render_children($form);
+
+  return $output;
+}
+
+/**
+ * Saves the address fields settings.
+ *
+ * @see uc_store_address_fields_form()
+ */
+function uc_store_address_fields_form_submit($form, &$form_state) {
+  $fields = array();
+  $required = array();
+  $weight = array();
+  foreach ($form_state['values']['fields'] as $field => $data) {
+    variable_set('uc_field_' . $field, $data['title']);
+    if (isset($data['enabled']) && $data['enabled']) {
+      $fields[] = $field;
+    }
+    if (isset($data['required']) && $data['required']) {
+      $required[] = $field;
+    }
+    if (isset($data['weight'])) {
+      $weight[$field] = $data['weight'];
+    }
+  }
+  variable_set('uc_address_fields', drupal_map_assoc($fields));
+  variable_set('uc_address_fields_required', drupal_map_assoc($required));
+  variable_set('uc_address_fields_weight', $weight);
+  drupal_set_message(t('The configuration options have been saved.'));
+}
+
+/**
+ * Resets the address fields settings to their default values.
+ *
+ * @see uc_store_address_fields_form()
+ */
+function uc_store_address_fields_form_reset($form_id, &$form_state) {
+  foreach ($form_state['values']['fields'] as $field => $data) {
+    variable_del('uc_field_' . $field);
+  }
+  variable_del('uc_address_fields');
+  variable_del('uc_address_fields_required');
+  variable_del('uc_address_fields_weight');
+  drupal_set_message(t('The configuration options have been reset to their default values.'));
 }
 
 /**
@@ -575,14 +268,14 @@ function uc_country_formats_form_submit($form, &$form_state) {
  * @ingroup forms
  */
 function uc_store_settings_form($form, &$form_state) {
-  $form['store']['#type'] = 'vertical_tabs';
+  $form['store'] = array('#type' => 'vertical_tabs');
 
   $form['basic'] = array(
     '#type' => 'fieldset',
     '#title' => t('Basic information'),
     '#group' => 'store',
   );
-  $form['basic']['uc_store_name'] = uc_textfield(t('Store name'), variable_get('uc_store_name', NULL), FALSE, NULL, 64);
+  $form['basic']['uc_store_name'] = uc_textfield(t('Store name'), uc_store_name(), FALSE, NULL, 64);
   $form['basic']['uc_store_owner'] = uc_textfield(t('Store owner'), variable_get('uc_store_owner', NULL), FALSE, NULL, 64);
   $form['basic']['uc_store_email'] = array(
     '#type' => 'textfield',
@@ -591,7 +284,7 @@ function uc_store_settings_form($form, &$form_state) {
     '#size' => 32,
     '#maxlength' => 128,
     '#required' => TRUE,
-    '#default_value' => variable_get('uc_store_email', NULL),
+    '#default_value' => uc_store_email(),
   );
   $form['basic']['uc_store_email_include_name'] = array(
     '#type' => 'checkbox',
@@ -740,13 +433,14 @@ function uc_store_settings_form($form, &$form_state) {
       array('none' => t('(Do not display a message in the footer.)'))
     ),
     '#default_value' => variable_get('uc_footer_message', 0),
+    '#weight' => 10,
   );
 
   return system_settings_form($form);
 }
 
 /**
- * Validate store e-mail address for uc_store_settings_form().
+ * Validates store e-mail address for uc_store_settings_form().
  *
  * @see uc_store_settings_form()
  */
@@ -758,314 +452,60 @@ function uc_store_settings_form_validate($form, &$form_state) {
 }
 
 /**
- * Form to enter initials for an administrative user.
- *
- * @see uc_store_initials_submit()
- * @ingroup forms
+ * Implements hook_uc_store_status().
  */
-function uc_store_initials($form, &$form_state) {
-  $form['username'] = array(
-    '#type' => 'textfield',
-    '#title' => t('User name'),
-    '#description' => t('Enter the name of the user whose initials you want to adjust.'),
-    '#required' => TRUE,
-    '#size' => 32,
-    '#autocomplete_path' => 'user/autocomplete',
-  );
-  $form['initials'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Initials'),
-    '#description' => t('Enter initials or leave blank to erase current initials.'),
-    '#size' => 6,
-    '#maxlength' => 32,
-  );
+function uc_store_uc_store_status() {
+  $messages = array();
 
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Submit'),
-  );
-
-  return $form;
-}
-
-/**
- * Form submission handler for uc_store_initials().
- *
- * @see uc_store_initials()
- */
-function uc_store_initials_submit($form, &$form_state) {
-  $result = db_query("SELECT uid FROM {users} WHERE name = :name", array(':name' => $form_state['values']['username']));
-  if ($user = $result->fetchObject()) {
-    if ($form_state['values']['initials'] == '') {
-      variable_del('user_initials_' . $user->uid);
-      drupal_set_message(t('Initials for !username deleted.', array('!username' => $form_state['values']['username'])));
-    }
-    else {
-      variable_set('user_initials_' . $user->uid, $form_state['values']['initials']);
-      drupal_set_message(t('Initials for !username set to !initials.',
-                           array('!username' => $form_state['values']['username'],
-                                 '!initials' => $form_state['values']['initials'])));
-    }
+  // Check to see if there are any updated CIF files that need to be installed.
+  $countries = array();
+  $result = db_query("SELECT * FROM {uc_countries}");
+  foreach ($result as $country) {
+    $countries[t($country->country_name)] = $country;
   }
-}
+  uksort($countries, 'strnatcasecmp');
+  $files = _uc_country_import_list();
 
-/**
- * Displays a list of orders made by a customer.
- *
- * $param $uid
- *   The user id of the customer.
- */
-function uc_store_customer_orders($uid) {
-  $result = db_select('uc_orders')->extend('PagerDefault')
-    ->fields('uc_orders')
-    ->condition('uid', $uid)
-    ->condition('order_status', uc_order_status_list('general', TRUE), 'IN')
-    ->orderBy('created', 'DESC')
-    ->limit(50)
-    ->execute();
-
-  $header = array(t('View'), t('Order ID'), t('Date'), t('Billing name'),
-                  t('Shipping name'), t('Items'), t('Total'));
-
-  $totals = array('orders' => 0, 'items' => 0, 'total' => 0);
-  foreach ($result as $order) {
-    $icons = l(uc_store_get_icon('file:order_view'),
-               'admin/store/orders/' . $order->order_id,
-               array('html' => TRUE, 'attributes' => array('title' => t("View order !order_id.", array('!order_id' => $order->order_id))))
-             )
-           . l(uc_store_get_icon('file:order_edit'),
-               'admin/store/orders/' . $order->order_id . '/edit',
-               array('html' => TRUE, 'attributes' =>
-                 array(
-                   'title' => t("Edit order !order_id.",
-                     array('!order_id' => $order->order_id)
-                   )
-                 )
-               )
-             );
-    $bname = ucfirst($order->billing_first_name) . ' '
-           . ucfirst($order->billing_last_name);
-    $sname = ucfirst($order->delivery_first_name) . ' '
-           . ucfirst($order->delivery_last_name);
-    $item_count = db_query("SELECT COUNT(*) FROM {uc_order_products} WHERE order_id = :order_id", array(':order_id' => $order->order_id))->fetchField();
-
-    $totals['orders'] += 1;
-    $totals['items'] += $item_count;
-    $totals['total'] += $order->order_total;
-
-    $rows[] = array(
-      'data' => array(
-        array('data' => $icons),
-        array('data' => $order->order_id),
-        array('data' => format_date($order->created, 'uc_store')),
-        array('data' => check_plain($bname)),
-        array('data' => check_plain($sname)),
-        array('data' => $item_count['COUNT(*)']),
-        array('data' => array('#theme' => 'uc_price', '#price' => $order->order_total)),
-      ),
-      'id' => 'order-' . $order->order_id,
-    );
-  }
-  if (empty($rows)) {
-    $rows[] = array(
-      array('data' => t('No orders found.'), 'colspan' => 7)
-    );
-  }
-
-  drupal_add_js(drupal_get_path('module', 'uc_store') . '/uc_store.js');
-
-  $build = array();
-
-  if (user_access('create orders')) {
-    $build['order_link'] = array(
-      '#markup' => '<p>' . l(t('Create an order for this customer.'), 'admin/store/orders/create/' . $uid) . '</p>',
-      '#weight' => -10,
-    );
-  }
-
-  $build['description'] = array(
-    '#markup' => '<p>' . t('!totals_orders orders shown match that account with !totals_items items purchased and !totals_total spent:',
-       array(
-         '!totals_orders' => $totals['orders'],
-         '!totals_items' => $totals['items'],
-         '!totals_total' => uc_currency_format($totals['total']),
-       )) . '</p>',
-  );
-  $build['orders'] = array(
-    '#theme' => 'table',
-    '#header' => $header,
-    '#rows' => $rows,
-    '#attributes' => array('width' => '100%', 'class' => array('uc-cust-orders-table')),
-  );
-  $build['pager'] = array(
-    '#theme' => 'pager',
-    '#weight' => 5,
-  );
-
-  return $build;
-}
-
-/**
- * Disables a country so it remains installed but is no longer selectable.
- *
- * @param $country_id
- *   The ISO 3166-1 numeric country code.
- */
-function uc_country_disable($country_id) {
-  $result = db_query("SELECT * FROM {uc_countries} WHERE country_id = :id", array(':id' => $country_id));
-  if ($country = $result->fetchObject()) {
-    if ($country->version > 0) {
-      db_update('uc_countries')
-        ->fields(array(
-          'version' => -$country->version,
-        ))
-        ->condition('country_id', $country_id)
-        ->execute();
-      drupal_set_message(t('!country disabled.', array('!country' => t($country->country_name))));
-    }
-    else {
-      drupal_set_message(t('!country is already disabled.', array('!country' => t($country->country_name))), 'error');
-    }
-  }
-  else {
-    drupal_set_message(t('Attempted to disable an invalid country.'), 'error');
-  }
-  drupal_goto('admin/store/settings/countries');
-}
-
-/**
- * Enables a disabled country.
- *
- * @param $country_id
- *   The ISO 3166-1 numeric country code.
- */
-function uc_country_enable($country_id) {
-  $result = db_query("SELECT * FROM {uc_countries} WHERE country_id = :id", array(':id' => $country_id));
-  if ($country = $result->fetchObject()) {
-    if ($country->version < 0) {
-      db_update('uc_countries')
-        ->fields(array(
-          'version' => abs($country->version),
-        ))
-        ->condition('country_id', $country_id)
-        ->execute();
-      drupal_set_message(t('@country enabled.', array('@country' => t($country->country_name))));
-    }
-    else {
-      drupal_set_message(t('@country is already enabled.', array('@country' => t($country->country_name))), 'error');
-    }
-  }
-  else {
-    drupal_set_message(t('Attempted to enable an invalid country.'), 'error');
-  }
-  drupal_goto('admin/store/settings/countries');
-}
-
-/**
- * Form to completely remove a country.
- *
- * @param $country_id
- *   The ISO 3166-1 numeric country code.
- *
- * @see uc_country_remove_form_submit()
- * @ingroup forms
- */
-function uc_country_remove_form($form, &$form_state, $country_id) {
-  // Fetch the country name from the database.
-  $country = t(db_query("SELECT country_name FROM {uc_countries} WHERE country_id = :id", array(':id' => $country_id))->fetchField());
-
-  // If orders exist for this country, show a warning message prior to removal.
-  if (isset($form_state['triggering_element']) && $form_state['triggering_element']['#value'] != t('Remove') && module_exists('uc_order')) {
-    $count = db_query("SELECT COUNT(order_id) FROM {uc_orders} WHERE delivery_country = :delivery_country OR billing_country = :billing_country", array(':delivery_country' => $country_id, ':billing_country' => $country_id))->fetchField();
-    if ($count > 0) {
-      drupal_set_message(t('Warning: @count orders were found with addresses in this country. Removing this country now will cause errors to show on those order pages. You might consider simply disabling this country instead.', array('@count' => $count)), 'error');
-    }
-  }
-
-  // Store the country ID in the form array for processing.
-  $form['country_id'] = array(
-    '#type' => 'value',
-    '#value' => $country_id,
-  );
-
-  return confirm_form($form, t('Are you sure you want to remove @country from the system?', array('@country' => $country)), 'admin/store/settings/countries', NULL, t('Remove'));
-}
-
-/**
- * Form submission handler for uc_country_remove_form().
- *
- * @see uc_country_remove_form()
- */
-function uc_country_remove_form_submit($form, &$form_state) {
-  $country_id = $form_state['values']['country_id'];
-
-  $result = db_query("SELECT * FROM {uc_countries} WHERE country_id = :id", array(':id' => $country_id));
-  if (!($country = $result->fetchObject())) {
-    drupal_set_message(t('Attempted to remove an invalid country.'), 'error');
-    drupal_goto('admin/store/settings/countries');
-  }
-
-  db_delete('uc_countries')
-    ->condition('country_id', $country_id)
-    ->execute();
-  db_delete('uc_zones')
-    ->condition('zone_country_id', $country_id)
-    ->execute();
-  variable_del('uc_address_format_' . $country_id);
-
-  $func_base = _uc_country_import_include($country_id, $country->version);
-  if ($func_base !== FALSE) {
-    $func = $func_base . '_uninstall';
-    if (function_exists($func)) {
-      $func();
-    }
-  }
-
-  drupal_set_message(t('!country removed.', array('!country' => t($country->country_name))));
-  drupal_goto('admin/store/settings/countries');
-}
-
-/**
- * Updates a country definition to a specific CIF file version.
- *
- * @param $country_id
- *   The ISO 3166-1 numeric country code.
- * @param $version
- *   Version number of CIF file.
- */
-function uc_country_update($country_id, $version) {
-  $result = db_query("SELECT * FROM {uc_countries} WHERE country_id = :id", array(':id' => $country_id));
-  if (!($country = $result->fetchObject())) {
-    drupal_set_message(t('Attempted to update an invalid country.'));
-    drupal_goto('admin/store/settings/countries');
-  }
-
-  if ($version < $country->version) {
-    drupal_set_message(t('You cannot update to a previous version.'));
-    drupal_goto('admin/store/settings/countries');
-  }
-
-  $func_base = _uc_country_import_include($country_id, $version);
-  if ($func_base !== FALSE) {
-    $func = $func_base . '_update';
-    if (function_exists($func)) {
-      for ($i = $country->version; $i <= $version; $i++) {
-        $func($i);
+  $updates = array();
+  if (is_array($countries)) {
+    foreach ($countries as $country) {
+      if ($country->version < $files[$country->country_id]['version'] && $country->version > 0) {
+        $updates[] = $country->country_name;
       }
+      unset($files[$country->country_id]);
     }
+  }
 
-    db_update('uc_countries')
-      ->fields(array(
-        'version' => $version,
-      ))
-      ->condition('country_id', $country_id)
-      ->execute();
-    drupal_set_message(t('Country update complete.'));
+  if (count($updates)) {
+    $messages[] = array(
+      'status' => 'warning',
+      'title'  => t('Countries'),
+      'desc'   => t('Updates are available for the following installed countries: %countries. You may update these countries on the <a href="@url">country settings</a> page.', array('%countries' => implode(', ', $updates), '@url' => url('admin/store/settings/countries'))),
+    );
   }
   else {
-    drupal_set_message(t('Attempted to update an invalid country.'));
+    $messages[] = array(
+      'status' => 'ok',
+      'title'  => t('Countries'),
+      'desc'   => t('Country definitions are up-to-date.'),
+    );
   }
 
-  drupal_goto('admin/store/settings/countries');
+  // Check to see if the store e-mail address has been set.
+  if (variable_get('uc_store_email', '') == '') {
+    $messages[] = array(
+      'status' => 'error',
+      'title'  => t('Store settings'),
+      'desc'   => t('Store e-mail address has not been set. Please enter it <a href="@url">here</a>.', array('@url' => url('admin/store/settings/store'))),
+    );
+  }
+  else {
+    $messages[] = array(
+      'status' => 'ok',
+      'title'  => t('Store settings'),
+      'desc'   => t('Store e-mail address is set.'),
+    );
+  }
+
+  return $messages;
 }

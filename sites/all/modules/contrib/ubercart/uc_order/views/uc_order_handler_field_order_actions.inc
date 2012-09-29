@@ -2,16 +2,16 @@
 
 /**
  * @file
- * Views handler: Return actions for order id - by justindodge
+ * Views handler: Return actions for order id.
  */
 
 /**
- * Return actions for an order.
+ * Returns actions for an order.
  */
 class uc_order_handler_field_order_actions extends views_handler_field {
 
   /**
-   *
+   * Overrides views_handler_field::render().
    */
   function render($values) {
     $order = uc_order_load($values->order_id);
@@ -19,10 +19,10 @@ class uc_order_handler_field_order_actions extends views_handler_field {
   }
 
   /**
-   *
+   * Overrides views_handler_field::query().
    */
   function query() {
-    //do nada, this isn't a real db field, just one we're rendering
+    // Do nothing.
   }
 
 }

@@ -1,4 +1,3 @@
-// $Id: language_switcher.js,v 1.2 2011/01/28 00:13:54 goodman Exp $
 (function ($) {
 
 /**
@@ -13,7 +12,7 @@ Drupal.behaviors.langauges_switcher = {
   },
 
   /**
-   * Desc
+   * Override the default language switcher block.
    */
   blockOverrideDefaults: function () {
     // Defaults
@@ -57,18 +56,20 @@ Drupal.behaviors.langauges_switcher = {
   },
 
   /**
-   * Desc
+   * Add langcode to node's class prop.
+   *
+   * @TODO need to get this in core http://drupal.org/node/1164926
    */
   wrapLangs: function () {
     for (var i in Drupal.settings.languages) {
       var lang = Drupal.settings.languages[i];
-      var class = '.node.' + lang;
-      $(class).wrapAll("<div class='" + lang + " language visible'></div>");
+      var node_class = '.node.' + lang;
+      $(node_class).wrapAll("<div class='" + lang + " language visible'></div>");
     }
   },
 
   /**
-   * Desc
+   * New panels are equally divided by their widths.
    */
   resizePanels: function () {
     var parent_width = $("div.language").parent().width();
@@ -81,7 +82,7 @@ Drupal.behaviors.langauges_switcher = {
   },
 
   /**
-   * Desc
+   * Get langcode from node's class prop.
    */
   getLangFromCss: function (obj) {
     var languages = Drupal.settings.languages;
@@ -89,7 +90,6 @@ Drupal.behaviors.langauges_switcher = {
 
     var parent_css = $(obj).parent().attr('class');
     parent_css = parent_css.split(" ");
-
     var language = '';
 
     for (var i in parent_css) {
@@ -97,7 +97,6 @@ Drupal.behaviors.langauges_switcher = {
         language = parent_css[i];
       }
     }
-
     return language;
   }
 };
@@ -105,9 +104,8 @@ Drupal.behaviors.langauges_switcher = {
 // object converter: convert array into object
 function oc(a) {
   var o = {};
-  for(var i=0;i<a.length;i++)
-  {
-    o[a[i]]='';
+  for(var i = 0; i < a.length; i++) {
+    o[a[i]] = '';
   }
   return o;
 }

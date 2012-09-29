@@ -67,7 +67,7 @@ function uc_taxes_schema() {
         'default' => 0,
       ),
       'inclusion_text' => array(
-        'desrcription' => 'Text to be shown near a product price that includes tax.',
+        'description' => 'Text to be shown near a product price that includes tax.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -125,7 +125,7 @@ function uc_taxes_update_7000() {
     'default' => 0,
   ));
   db_add_field('uc_taxes', 'inclusion_text', array(
-    'desrcription' => 'Text to be shown near a product price that includes tax.',
+    'description' => 'Text to be shown near a product price that includes tax.',
     'type' => 'varchar',
     'length' => 255,
     'not null' => TRUE,
@@ -189,5 +189,65 @@ function uc_taxes_update_7001() {
 
     $p_insert->execute();
     $l_insert->execute();
+  }
+}
+
+/**
+ * Fix schema mismatch in update 7000.
+ */
+function uc_taxes_update_7002() {
+  if (db_field_exists('uc_taxes', 'include')) {
+    db_change_field('uc_taxes', 'include', 'display_include', array(
+      'description' => 'Boolean flag indicating that product prices should be displayed including the tax.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ));
+  }
+
+  db_change_field('uc_taxes', 'inclusion_text', 'inclusion_text', array(
+    'description' => 'Text to be shown near a product price that includes tax.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  ));
+}
+
+/**
+ * Make sure orders have stored tax data.
+ */
+function uc_taxes_update_7003(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    $taxes = db_query("SELECT id FROM {uc_taxes}")->fetchField();
+    if (!$taxes) {
+      return;
+    }
+
+    $sandbox['current'] = 0;
+    $sandbox['progress'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(order_id) FROM {uc_orders}")->fetchField();
+  }
+
+  $t = get_t();
+  $limit = 100;
+
+  $orders = db_query_range("SELECT order_id FROM {uc_orders} WHERE order_id > :current ORDER BY order_id", 0, $limit, array(':current' => $sandbox['current']))->fetchCol();
+  foreach ($orders as $order_id) {
+    $order = uc_order_load($order_id);
+
+    uc_order_save($order);
+
+    $sandbox['current'] = $order_id;
+    $sandbox['progress']++;
+  }
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = min(0.99, $sandbox['progress'] / $sandbox['max']);
+  }
+  else {
+    $sandbox['#finished'] = 1;
   }
 }

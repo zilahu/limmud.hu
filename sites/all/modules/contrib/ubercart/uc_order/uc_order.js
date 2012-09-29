@@ -4,28 +4,22 @@
  */
 
 var customer_select = '';
-var add_product_browser = '';
 
 /**
- * Adds the double click behavior to the order table at admin/store/orders.
+ * Adds double click behavior to the order and customer admin tables.
  */
 Drupal.behaviors.ucOrderClick = {
   attach: function(context, settings) {
-    jQuery('.uc-orders-table tr.odd, .uc-orders-table tr.even:not(.ucOrderClick-processed)', context).addClass('ucOrderClick-processed').each(
+    jQuery('.view-uc-orders tbody tr, .view-uc-customers tbody tr', context).dblclick(
       function() {
-        jQuery(this).dblclick(
-          function() {
-            var url = settings.ucURL.adminOrders + this.id.substring(6);
-            window.location = url;
-          }
-        );
+        window.location = jQuery(this).find('.views-field-order-id a').attr('href');
       }
     );
   }
 }
 
 /**
- * Add the submit behavior to the order form
+ * Adds the submit behavior to the order form
  */
 Drupal.behaviors.ucOrderSubmit = {
   attach: function(context, settings) {
@@ -40,33 +34,9 @@ Drupal.behaviors.ucOrderSubmit = {
   }
 }
 
-jQuery(document).ready(
-  function() {
-    jQuery('.uc-orders-table tr.odd, .uc-orders-table tr.even').each(
-      function() {
-        jQuery(this).dblclick(
-          function() {
-            var url = Drupal.settings.ucURL.adminOrders + this.id.substring(6);
-            window.location = url;
-          }
-        );
-      }
-    );
-
-    jQuery('#uc-order-edit-form').submit(
-      function() {
-        jQuery('#products-selector').empty().removeClass();
-        jQuery('#delivery_address_select').empty().removeClass();
-        jQuery('#billing_address_select').empty().removeClass();
-        jQuery('#customer-select').empty().removeClass();
-      }
-    );
-  }
-);
-
 /**
- * Copy the shipping data on the order edit screen to the corresponding billing
- * fields if they exist.
+ * Copies the shipping data on the order edit screen to the corresponding
+ * billing fields if they exist.
  */
 function uc_order_copy_shipping_to_billing() {
   if (jQuery('#edit-delivery-zone').html() != jQuery('#edit-billing-zone').html()) {
@@ -83,25 +53,25 @@ function uc_order_copy_shipping_to_billing() {
 }
 
 /**
- * Copy the billing data on the order edit screen to the corresponding shipping
- * fields if they exist.
+ * Copies the billing data on the order edit screen to the corresponding
+ * shipping fields if they exist.
  */
 function uc_order_copy_billing_to_shipping() {
-  if ($('#edit-billing-zone').html() != $('#edit-delivery-zone').html()) {
-    $('#edit-delivery-zone').empty().append($('#edit-billing-zone').children().clone());
+  if (jQuery('#edit-billing-zone').html() != jQuery('#edit-delivery-zone').html()) {
+    jQuery('#edit-delivery-zone').empty().append(jQuery('#edit-billing-zone').children().clone());
   }
 
-  $('#uc-order-edit-form input, select, textarea').each(
+  jQuery('#uc-order-edit-form input, select, textarea').each(
     function() {
       if (this.id.substring(0, 12) == 'edit-billing') {
-        $('#edit-delivery' + this.id.substring(12)).val($(this).val());
+        jQuery('#edit-delivery' + this.id.substring(12)).val(jQuery(this).val());
       }
     }
   );
 }
 
 /**
- * Load the address book div on the order edit screen.
+ * Loads the address book div on the order edit screen.
  */
 function load_address_select(uid, div, address_type) {
   var options = {
@@ -118,7 +88,7 @@ function load_address_select(uid, div, address_type) {
 }
 
 /**
- * Apply the selected address to the appropriate fields in the order edit form.
+ * Applys the selected address to the appropriate fields in the order edit form.
  */
 function apply_address(type, address_str) {
   eval('var address = ' + address_str + ';');
@@ -139,7 +109,7 @@ function apply_address(type, address_str) {
 }
 
 /**
- * Close the address book div.
+ * Closes the address book div.
  */
 function close_address_select(div) {
   jQuery(div).empty().removeClass('address-select-box');
@@ -147,7 +117,7 @@ function close_address_select(div) {
 }
 
 /**
- * Load the customer select div on the order edit screen.
+ * Loads the customer select div on the order edit screen.
  */
 function load_customer_search() {
   if (customer_select == 'search' && jQuery('#customer-select #edit-back').val() == null) {
@@ -167,7 +137,7 @@ function load_customer_search() {
 }
 
 /**
- * Display the results of the customer search.
+ * Displays the results of the customer search.
  */
 function load_customer_search_results() {
   jQuery.post(Drupal.settings.ucURL.adminOrders + 'customer/search',
@@ -184,7 +154,7 @@ function load_customer_search_results() {
 }
 
 /**
- * Set customer values from search selection.
+ * Sets customer values from search selection.
  */
 function select_customer_search() {
   var data = jQuery('#edit-cust-select').val();
@@ -193,7 +163,7 @@ function select_customer_search() {
 }
 
 /**
- * Display the new customer form.
+ * Displays the new customer form.
  */
 function load_new_customer_form() {
   if (customer_select == 'new') {
@@ -210,7 +180,7 @@ function load_new_customer_form() {
 }
 
 /**
- * Validate the customer's email address.
+ * Validates the customer's email address.
  */
 function check_new_customer_address() {
   var options = {
@@ -226,7 +196,7 @@ function check_new_customer_address() {
 }
 
 /**
- * Load existing customer as new order's customer.
+ * Loads existing customer as new order's customer.
  */
 function select_existing_customer(uid, email) {
   jQuery('input[name=uid], #edit-uid-text').val(uid);
@@ -240,21 +210,10 @@ function select_existing_customer(uid, email) {
 }
 
 /**
- * Hide the customer selection form.
+ * Hides the customer selection form.
  */
 function close_customer_select() {
   jQuery('#customer-select').empty().removeClass('customer-select-box');
   customer_select = '';
   return false;
-}
-
-/**
- * Prevent mistakes by confirming deletion.
- */
-function confirm_line_item_delete(message, img_id) {
-  if (confirm(message)) {
-    var li_id = img_id.substring(3);
-    jQuery('[name=li_delete_id]').val(li_id);
-    jQuery('#uc-order-edit-form #edit-submit-changes').get(0).click();
-  }
 }

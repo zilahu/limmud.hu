@@ -6,25 +6,6 @@
  */
 
 /**
- * Implements hook_requirements().
- */
-function uc_google_checkout_requirements($phase) {
-  $t = get_t();
-
-  $has_simplexml = class_exists('SimpleXMLElement');
-  $requirements['uc_gc_simplexml'] = array(
-    'title' => $t('SimpleXML'),
-    'value' => $has_simplexml ? $t('Enabled') : $t('Not found'),
-  );
-  if (!$has_simplexml) {
-    $requirements['uc_gc_simplexml']['severity'] = REQUIREMENT_ERROR;
-    $requirements['uc_gc_simplexml']['description'] = $t('Google Checkout requires the PHP <a href="!simplexml_url">SimpleXML</a> library.', array('!simplexml_url' => 'http://php.net/manual/en/simplexml.setup.php'));
-  }
-
-  return $requirements;
-}
-
-/**
  * Implements hook_schema().
  */
 function uc_google_checkout_schema() {
@@ -150,24 +131,32 @@ function uc_google_checkout_install() {
 
   db_merge('uc_order_statuses')
     ->key(array('order_status_id' => 'in_google_checkout'))
-    ->fields(array(
+    ->insertFields(array(
+      'order_status_id' => 'in_google_checkout',
       'title' => $t('In Google Checkout'),
       'state' => 'in_checkout',
       'weight' => -7,
       'locked' => 1,
     ))
-    ->updateExcept('title', 'weight')
+    ->updateFields(array(
+      'state' => 'in_checkout',
+      'locked' => 1,
+    ))
     ->execute();
 
   db_merge('uc_order_statuses')
     ->key(array('order_status_id' => 'chargeable'))
-    ->fields(array(
+    ->insertFields(array(
+      'order_status_id' => 'chargeable',
       'title' => $t('Chargeable'),
       'state' => 'post_checkout',
       'weight' => 2,
       'locked' => 1,
     ))
-    ->updateExcept('title', 'weight')
+    ->updateFields(array(
+      'state' => 'post_checkout',
+      'locked' => 1,
+    ))
     ->execute();
 }
 
@@ -194,5 +183,46 @@ function uc_google_checkout_uninstall() {
  * Implements hook_update_last_removed().
  */
 function uc_google_checkout_update_last_removed() {
-  return 6004;
+  // 7.x-3.0-beta2 and earlier were installed with schema version 0,
+  // which causes update.php to fail.
+  return drupal_get_installed_schema_version('uc_google_checkout') == 0 ? 0 : 6004;
+}
+
+/**
+ * Fix incorrect order status configuration.
+ */
+function uc_google_checkout_update_7000() {
+  db_delete('uc_order_statuses')
+    ->condition('order_status_id', '')
+    ->execute();
+
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'in_google_checkout'))
+    ->insertFields(array(
+      'order_status_id' => 'in_google_checkout',
+      'title' => t('In Google Checkout'),
+      'state' => 'in_checkout',
+      'weight' => -7,
+      'locked' => 1,
+    ))
+    ->updateFields(array(
+      'state' => 'in_checkout',
+      'locked' => 1,
+    ))
+    ->execute();
+
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'chargeable'))
+    ->insertFields(array(
+      'order_status_id' => 'chargeable',
+      'title' => t('Chargeable'),
+      'state' => 'post_checkout',
+      'weight' => 2,
+      'locked' => 1,
+    ))
+    ->updateFields(array(
+      'state' => 'post_checkout',
+      'locked' => 1,
+    ))
+    ->execute();
 }

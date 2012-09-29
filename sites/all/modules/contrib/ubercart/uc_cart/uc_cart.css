@@ -3,10 +3,6 @@
  * Styles for uc_cart module.
  */
 
-.display-none {
-  display: none;
-}
-
 .order-review-table {
   border: solid 1px #999;
   font-size: .9em;
@@ -16,8 +12,8 @@
 }
 
 .order-review-table td {
-  padding-top: 0.1em;
   padding-bottom: 0.2em;
+  padding-top: 0.1em;
 }
 
 .order-review-table .pane-title-row {
@@ -32,6 +28,7 @@
   font-weight: bold;
   padding-left: 3em;
   text-align: right;
+  white-space: nowrap;
 }
 
 .order-review-table .data-col {
@@ -61,7 +58,6 @@
   display: inline;
 }
 
-
 /* I cannot testify for any of the data below.. it's a hodge podge. */
 
 .next-button {
@@ -74,100 +70,62 @@
   float: left;
 }
 
-#line-items-div table {
-  width: auto;
-}
-
-#line-items-div td {
-  padding: 0em 1em;
-}
-
-#line-items-div tbody {
-  border-top: 0px;
-}
-
 .address-book-icon {
-  margin-left: 2px;
   position: relative;
+  margin-left: 2px;
   top: 2px;
 }
 
 /**
  * CSS rules for the cart form at /cart.
  */
-#cart-form-products {
-  border: solid 1px #bbb;
-  margin-top: .5em;
-  width: 100%;
-}
-
-#cart-form-products td.desc {
-  width: 100%;
-}
-
-#cart-form-products td.total, #cart-form-products td.subtotal {
+#uc-cart-view-form th {
   white-space: nowrap;
 }
 
-#cart-form-buttons {
-  border: solid 1px #bbb;
-  margin: .5em 0em;
+#uc-cart-view-form td.desc {
+  width: 100%;
+}
+
+#uc-cart-view-form td.total,
+#uc-cart-view-form td.subtotal {
+  white-space: nowrap;
+}
+
+#uc-cart-view-form .form-actions {
+  margin-top: 0;
   text-align: right;
-  width: 100%;
 }
 
-#cart-form-pane #uc-cart-view-form {
-  margin-bottom: .5em;
-}
-
-#cart-form-buttons .form-button, #cart-form-buttons .form-submit {
-  margin: .5em .5em .5em 0em;
-}
-
-#update-checkout-buttons {
-  float: right;
-}
-
-#continue-shopping-link {
+#uc-cart-view-form .form-actions a {
   float: left;
-  left: .75em;
-  position: relative;
-  top: .5em;
+  margin: .5em;
 }
 
-#continue-shopping-button {
+#uc-cart-view-form #edit-continue-shopping {
+  float: left;
   margin-left: .5em;
-  margin-right: 100%;
-  white-space: nowrap;
+}
+
+#uc-cart-view-form .form-actions input {
+  vertical-align: middle;
+}
+
+.uc-cart-checkout-button {
+  float: right;
+  clear: right;
+}
+
+.uc-cart-checkout-button-separator {
+  text-align: center;
 }
 
 /**
  * CSS rules for the cart review table.
  */
-.cart-review {
-  border: solid 1px #bbb;
-}
-
-.cart-review td {
-  padding: .4em;
-}
-
-.cart-review thead tr {
-  border: 0em;
-  font-weight: bold;
-}
-
-.cart-review tbody {
-  border-top: 0em;
-}
-
-.cart-review tbody tr {
-  border: 0em;
-  vertical-align: top;
-}
-
 td.qty {
   text-align: center;
+  white-space: nowrap;
 }
 
 td.price {
@@ -187,39 +145,21 @@ td.subtotal {
   font-weight: bold;
 }
 
-
 /**
  * CSS rules for the default checkout panes.
  */
-#uc-cart-checkout-form .uc-store-address-field .form-item label {
+.uc-cart-checkout-form .uc-store-address-field .form-item label {
   padding: 5px 6px 6px;
 }
 
-#uc-cart-checkout-form .form-item {
+.uc-cart-checkout-form .form-item {
   margin-bottom: 2px;
   margin-top: 2px;
 }
 
 /**
- * CSS rules for payment details tables.
- */
-.inline-pane-table tbody {
-  border-top: 0em;
-}
-
-.inline-pane-table .form-item {
-  display: inline;
-}
-
-/**
  * CSS rules for the bottom of the checkout form at /cart/checkout.
  */
-#checkout-form-bottom {
-  border: solid 1px #bbb;
+.uc-cart-checkout-form .form-actions {
   text-align: right;
-  width: 100%;
-}
-
-#checkout-form-bottom .form-button, #checkout-form-bottom .form-submit {
-  margin: .5em .5em .5em 0em;
 }

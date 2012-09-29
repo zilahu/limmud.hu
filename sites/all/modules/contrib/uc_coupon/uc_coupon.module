@@ -2,7 +2,7 @@
 /**
  * @file
  * Provides discount coupons for Ubercart.
- * 
+ *
  * Version: 2.x
  * Drupal Core: 7.x
  * Ubercart Core: 3.x
@@ -12,6 +12,8 @@
  *
  * Send any suggestions and feedback to the above address.
  */
+require_once('uc_coupon.entity.inc');
+
 /**
  * Implements hook_menu().
  */
@@ -244,12 +246,12 @@ function uc_coupon_theme() {
     ),
     'uc_coupon_certificate' => array(
       'variables' => array('coupon' => NULL, 'code' => NULL),
-      'template' => 'uc_coupon-certificate',
+      'template' => 'uc-coupon-certificate',
       'path' => drupal_get_path('module', 'uc_coupon') . '/theme',
     ),
     'uc_coupon_page' => array(
       'variables' => array('content' => NULL),
-      'template' => 'uc_coupon-page',
+      'template' => 'uc-coupon-page',
       'path' => drupal_get_path('module', 'uc_coupon') . '/theme',
     ),
   );
@@ -263,77 +265,6 @@ function uc_coupon_theme_registry_alter(&$registry) {
   if ($registry['uc_cart_block_content']['function'] == 'theme_uc_cart_block_content') {
     $registry['uc_cart_block_content']['function'] = 'uc_coupon_theme_uc_cart_block_content';
   }
-}
-
-/**
- * Save a coupon object.
- *
- * If the 'cid' field is set, then this will update an existing coupon.
- * Otherwise, a new bulk seed will be generated, the coupon will be
- * inserted into the database, and $coupon->cid will be set.
- *
- * @param $coupon
- *   The coupon to save.
- *
- * @param $edit
- *   An optional array of extra data that other modules may need to save.
- */
-function uc_coupon_save(&$coupon, $edit = array()) {
-  // Allow other modules to alter the coupon before saving.
-  foreach (module_implements('uc_coupon_presave') as $module) {
-    $callback = $module . '_uc_coupon_presave';
-    $callback($coupon, $edit);
-  }
-
-  if (isset($coupon->cid)) {
-    drupal_write_record('uc_coupons', $coupon, 'cid');
-  }
-  else {
-    $coupon->created = REQUEST_TIME;
-    $coupon->bulk_seed = md5(uniqid());
-    drupal_write_record('uc_coupons', $coupon);
-  }
-
-  // Notify other modules that a coupon has been saved.
-  module_invoke_all('uc_coupon_save', $coupon);
-}
-
-/**
- * Load a coupon object.
- *
- * @param $cid
- *   Unique coupon ID.
- *
- * @return $coupon
- *   A coupon object.
- */
-function uc_coupon_load($cid) {
-  $coupon = db_query("SELECT * FROM {uc_coupons} WHERE cid = :cid", array(':cid' => $cid))->fetchObject();
-  $coupon->data = isset($coupon->data) ? unserialize($coupon->data) : array();
-
-  // Convert old coupons that could not specify "per order" when restricted.
-  if (!isset($coupon->data['apply_to'])) {
-    if (isset($coupon->data['max_applicable_products_value']) && isset($coupon->data['max_applicable_products']) && $coupon->data['max_applicable_products']) {
-      // Coupon was restricted to X cheapest or most expensive products.
-      $coupon->data['apply_to'] = $coupon->data['max_applicable_products_value'];
-      $coupon->data['apply_count'] = $coupon->data['max_applicable_products'];
-    }
-    elseif (isset($coupon->data['products']) || isset($coupon->data['skus']) || isset($coupon->data['terms']) || isset($coupon->data['product_types'])) {
-      // Coupon has product restrictions, so was applied to each matching product.
-      $coupon->data['apply_to'] = 'products';
-    }
-    else {
-      // Coupon had no product restrictions, so was applied once to the subtotal.
-      $coupon->data['apply_to'] = 'subtotal';
-    }
-  }
-  unset($coupon->data['max_applicable_products']);
-  unset($coupon->data['max_applicable_products_value']);
-
-  // Allow other modules to alter the coupon data.
-  drupal_alter('uc_coupon', $coupon);
-
-  return $coupon;
 }
 
 /**
@@ -352,11 +283,13 @@ function uc_coupon_load($cid) {
 function uc_coupon_count_usage($cid, $uid = NULL) {
   global $user;
 
+  $weight = uc_order_status_data(variable_get('uc_coupon_used_order_status', 'processing'), 'weight');
   $usage = array('codes' => array());
   $result = db_query("SELECT uco.code, COUNT(*) AS uses FROM {uc_coupons_orders} AS uco
     LEFT JOIN {uc_orders} AS uo ON uco.oid = uo.order_id
     LEFT JOIN {uc_order_statuses} AS uos ON uo.order_status = uos.order_status_id
-    WHERE uos.weight > 0 AND uco.cid = :cid GROUP BY uco.code", array( ':cid' => $cid));
+    WHERE uos.weight >= :weight AND uco.cid = :cid GROUP BY uco.code",
+    array( ':weight' => $weight, ':cid' => $cid));
   foreach ($result as $row) {
     $usage['codes'][$row->code] = $row->uses;
   }
@@ -367,7 +300,8 @@ function uc_coupon_count_usage($cid, $uid = NULL) {
   $usage['user'] = db_query("SELECT COUNT(*) FROM {uc_coupons_orders} AS uco
     LEFT JOIN {uc_orders} AS uo ON uco.oid = uo.order_id
     LEFT JOIN {uc_order_statuses} AS uos ON uo.order_status = uos.order_status_id
-    WHERE uos.weight > 0 AND uco.cid = :cid AND uo.uid = :uid", array( ':cid' => $cid, ':uid' => $uid))->fetchField();
+    WHERE uos.weight >= :weight AND uco.cid = :cid AND uo.uid = :uid",
+    array( ':weight' => $weight, ':cid' => $cid, ':uid' => $uid))->fetchField();
 
   // Allow other modules to implement usage counts.
   drupal_alter('uc_coupon_usage', $usage, $cid, $uid);
@@ -390,7 +324,7 @@ function theme_uc_coupon_discount($variables) {
 /**
  * Format a coupon's value depending on the type, optionally including currency symbols.
  */
-function _uc_coupon_format_discount($coupon, $currency=TRUE) {
+function _uc_coupon_format_discount($coupon, $currency = TRUE) {
   switch ($coupon->type) {
     case 'price':
       return $currency ? uc_currency_format($coupon->value) : $coupon->value;
@@ -427,24 +361,24 @@ function uc_coupon_get_bulk_code($coupon, $id) {
  *    If TRUE the cache of codes for this request will be purged.  Any function which modifies
  *    a coupon should purge the cache.
  */
-function uc_coupon_find($code, $reset=FALSE) {
-  // This is expensive and can be called many times during coupon processing, so we 
-  // use a simple static cache. 
+function uc_coupon_find($code, $reset = FALSE) {
+  // This is expensive and can be called many times during coupon processing, so we
+  // use a simple static cache.
   static $cached = array();
   if ($reset) {
     $cached = array();
   }
-  
+
   if (!$code) {
     return FALSE;
   }
   elseif (array_key_exists($code, $cached)) {
     return $cached[$code];
   }
-  
+
   // Look for matching single coupon first.
-  $coupon = db_query("SELECT cid FROM {uc_coupons} 
-    WHERE code = :code AND status = 1 AND bulk = 0 AND valid_from < :now AND (valid_until = 0 OR valid_until > :now)", 
+  $coupon = db_query("SELECT cid FROM {uc_coupons}
+    WHERE code = :code AND status = 1 AND bulk = 0 AND valid_from < :now AND (valid_until = 0 OR valid_until > :now)",
     array(':code' => $code, ':now' => REQUEST_TIME))
     ->fetchObject();
   if ($coupon) {
@@ -453,8 +387,8 @@ function uc_coupon_find($code, $reset=FALSE) {
   }
 
   // Look through bulk coupons.
-  $result = db_query("SELECT cid, code, data, bulk_seed FROM {uc_coupons} 
-    WHERE status = 1 AND bulk = 1 AND valid_from < :now AND (valid_until = 0 OR valid_until > :now)", 
+  $result = db_query("SELECT cid, code, data, bulk_seed FROM {uc_coupons}
+    WHERE status = 1 AND bulk = 1 AND valid_from < :now AND (valid_until = 0 OR valid_until > :now)",
     array(':now' => REQUEST_TIME));
   foreach ($result as $coupon) {
     // Check coupon prefix.
@@ -499,7 +433,7 @@ function uc_coupon_find($code, $reset=FALSE) {
  *       A success or failure message is displayed.  This is the default operation performed when
  *       a customer enters a coupon code manually.
  *     - 'retain' - The code remains in the session whether or not it passes validation.  A success
- *       message is displayed the first time the coupon passes. This is useful for 
+ *       message is displayed the first time the coupon passes. This is useful for
  *       codes which are added automatically in response to events occurring before any products
  *       have been added to the cart (e.g. via the querystring).
  *     - 'auto' - The code is removed from the session whether or not it passes validation.  However, if
@@ -519,15 +453,15 @@ function uc_coupon_session_add($code, $op = 'submit') {
 
 /**
  * Removes one (or all) coupon codes from the session.
- * 
+ *
  * @param $code
  *		The code to remove, or NULL to remove all codes.
  * @param $is_update
- * 		TRUE (the default) if removing this code represents an update of the session; that is, if the code 
+ * 		TRUE (the default) if removing this code represents an update of the session; that is, if the code
  *		was previously validated. FALSE otherwise (e.g. for removal of automatic discounts).  Ignored if
  *		a specific code is not specified.		
  */
-function uc_coupon_session_clear($code=NULL) {
+function uc_coupon_session_clear($code = NULL) {
   if (isset($code)) {
     unset($_SESSION['uc_coupons'][$code]);
   }
@@ -542,12 +476,12 @@ function uc_coupon_session_clear($code=NULL) {
  *
  * @param $code
  *     (optional) The code to chec for.  If not specified, will return all codes.
- * 
+ *
  * @return
  *     If a code is specified, returns TRUE if that code exists in the session, FALSE otherwise.  If no
  *     code is specified, returns an array of the form $code=>$op for all codes in the session.
  */
-function uc_coupon_session_get($code=NULL) {
+function uc_coupon_session_get($code = NULL) {
   if (isset($code)) {
     return isset($_SESSION['uc_coupons'][$code]);
   }
@@ -560,47 +494,29 @@ function uc_coupon_session_get($code=NULL) {
 }
 
 /**
- * Suspend or resume application of the current session coupons when an order is saved.  Should
- * be called whenever processing old orders, to prevent the current session coupons from being
- * erroneously applied.
- * 
- * @param $setting
- *     TRUE to suspend application, FALSE to resume.  NULL to query the current state.
- * @return
- *     TRUE if suspended, FALSE otherwise.
- */
-function uc_coupon_session_suspend($setting=NULL) {
-  static $suspend = FALSE;
-  if (isset($setting)) {
-    $suspend = $setting;
-  }
-  return $suspend;
-}
-
-/**
  * Validates all coupons in the current session.  The validated coupons are statically
  * cached for each request.  The cache is rebuilt the first time this function is called,
  * or every time the cart contents are rebuilt.
- *  
+ *
  * @param $products
  *     An array of products, in which case the cached list of valid coupons is rebuilt by
  *     revalidating all the codes in the session against that list.
- * 
- *     NOTE: Forcing the cache to be rebuilt by calling this function with ($products != NULL) 
- *     is discouraged.  Instead, you should rebuild the current cart contents 
+ *
+ *     NOTE: Forcing the cache to be rebuilt by calling this function with ($products != NULL)
+ *     is discouraged.  Instead, you should rebuild the current cart contents
  *     by calling uc_cart_get_contents(NULL, 'rebuild').  This will ensure that the valid
  *     coupons list and the shopping cart are in sync.
- *    
+ *
  * @return
- *     An array of fully validated coupon objects.
+ *     An array of fully validated coupon objects, indexed by code.
  */
 function uc_coupon_session_validate($products = NULL) {
-  static $valids = NULL; 
+  static $valids = NULL;
 
   // If a list of products is specified, then rebuild the list.
   if (isset($products)) {
     $valids = array();
-    
+
     // Allow modules an opportunity to add or remove coupons from the session.
     module_invoke_all('uc_coupon_revalidate', $products);
     // Fetch all codes in the session.
@@ -625,8 +541,8 @@ function uc_coupon_session_validate($products = NULL) {
               // And we mark them for revalidation.
               uc_coupon_session_add($code, 'revalidate');
               break;
-              
-            case 'auto': 
+
+            case 'auto':
               // Automatic coupons are never added to the session.
               uc_coupon_session_clear($code);
               break;
@@ -639,17 +555,17 @@ function uc_coupon_session_validate($products = NULL) {
               drupal_set_message($coupon->message, 'error');
               uc_coupon_session_clear($code);
               break;
-              
-            case 'revalidate': 
+
+            case 'revalidate':
               if (!empty($products)) { // Only issue a message if the cart is not empty.
                 drupal_set_message(t('%title is no longer applicable to your order', array('%title' => $coupon->title)));
               }
               module_invoke_all('uc_coupon_remove', $coupon);
               // Keep code in the session in case it becomes valid again.
-              uc_coupon_session_add($code, 'retain'); 
+              uc_coupon_session_add($code, 'retain');
               break;
-              
-            case 'auto': 
+
+            case 'auto':
               // Automatic coupons are never added to the session.
               uc_coupon_session_clear($code);
               break;
@@ -658,12 +574,11 @@ function uc_coupon_session_validate($products = NULL) {
       }
     }
   }
-  
+
   // If no argument specified and the cache has not been built, we rebuild the cart to force validation.
   elseif (!isset($valids)) {
-    uc_cart_get_contents(NULL, TRUE);
+    uc_cart_get_contents();
   }
-  
   return $valids;
 }
 
@@ -688,11 +603,11 @@ function uc_coupon_session_validate($products = NULL) {
  *   - $coupon->title: The line item title for the discount.
  *   - $coupon->message: A message to be displayed accepting the acceptance or rejection of this coupon.
  *   - $coupon->amount: If $order !== FALSE, the discount that should be applied.
- *   - $coupon->discounts: if $order !== FALSE, an array discounts on individual products indexed by nid, 
+ *   - $coupon->discounts: if $order !== FALSE, an array discounts on individual products indexed by nid,
  *      containing the following fields:
  *       -> 'discount' = The full value of the discount on that item.
  *       -> 'pretax_discount' => The actual pre-tax discount. For fixed discounts to products with
- *          taxes included, we apply the face value of the coupon tax-inclusively also; that is, 
+ *          taxes included, we apply the face value of the coupon tax-inclusively also; that is,
  *          the actual discount is calculated so that the face value is correct after taxes.
  */
 function uc_coupon_validate($code, $order = NULL, $account = NULL) {
@@ -726,6 +641,7 @@ function uc_coupon_validate($code, $order = NULL, $account = NULL) {
   // Calculate the discount.
   if ($order) {
     $coupon->amount = 0;
+    $coupon->pretax_amount = 0;
     $discounts = uc_coupon_calculate_discounts($coupon, $order, TRUE);
     if (!is_array($discounts)) {
       $coupon->discounts = array();
@@ -736,6 +652,7 @@ function uc_coupon_validate($code, $order = NULL, $account = NULL) {
       $coupon->discounts = $discounts;
       foreach ($coupon->discounts as $item) {
         $coupon->amount += $item->discount;
+        $coupon->pretax_amount += isset($item->pretax_discount) ? $item->pretax_discount : $item->discount;
       }
       $coupon->amount = round($coupon->amount, variable_get('uc_currency_prec', 2));
     }
@@ -758,16 +675,16 @@ function uc_coupon_validate($code, $order = NULL, $account = NULL) {
   }
 
   // Create the line item title for this coupon.
-  $format = !empty($coupon->data['line_item_format']) ? $coupon->data['line_item_format'] : 
+  $format = !empty($coupon->data['line_item_format']) ? $coupon->data['line_item_format'] :
        variable_get('uc_coupon_line_item_format', t('Coupon !code', array('!code' => '[uc_coupon:code]')));
   $coupon->title = token_replace(check_plain($format), array('uc_coupon' => $coupon));
-  
+
   // Create a success message.
   if ($coupon->valid && !isset($coupon->message)) {
     if (isset($coupon->data['apply_message'])) {
       $coupon->message = token_replace(check_plain($coupon->data['apply_message']), array('uc_coupon' => $coupon));
     }
-    else {  
+    else {
       $amount = theme('uc_price', array('price' => $coupon->amount));
       if (isset($order) || variable_get('uc_coupon_show_in_cart', TRUE)) {
         $coupon->message = t('A discount of !amount has been applied to your order.', array('!amount' => $amount));
@@ -775,7 +692,7 @@ function uc_coupon_validate($code, $order = NULL, $account = NULL) {
       else {
         $coupon->message = t('A discount of !amount will be applied at checkout.', array('!amount' => $amount));
       }
-    }    
+    }
   }
   return $coupon;
 }
@@ -812,7 +729,7 @@ function uc_coupon_uc_coupon_validate(&$coupon, $order, $account) {
       }
     }
   }
-  
+
   // Check maximum usage per code.
   if ($coupon->max_uses > 0 && !empty($coupon->usage['codes'][$coupon->code]) && $coupon->usage['codes'][$coupon->code] >= $coupon->max_uses) {
     return t('This coupon has reached the maximum redemption limit.');
@@ -857,7 +774,7 @@ function uc_coupon_calculate_discounts($coupon, $order) {
     // If argument is a code, load the corresponding coupon.
     $coupon = uc_coupon_find($coupon);
   }
-  
+
   // Discover if any items match the restrictions, and which items the discount should be calculated against.
   $restricted = isset($coupon->data['products']) || isset($coupon->data['skus']) || isset($coupon->data['terms']) || isset($coupon->data['product_types']);
   $matched = 0;
@@ -915,8 +832,9 @@ function uc_coupon_calculate_discounts($coupon, $order) {
 
     // Include this item. Coupons that apply to the order subtotal affect all products.
     if ($include || $coupon->data['apply_to'] == 'subtotal') {
-      $item->type = $node->type;
-      $items = array_pad($items, count($items) + $qty, $item);
+      $clone = clone $item;
+      $clone->type = $node->type;
+      $items = array_pad($items, count($items) + $qty, $clone);
     }
   }
 
@@ -926,12 +844,12 @@ function uc_coupon_calculate_discounts($coupon, $order) {
   }
 
   $use_matched = (isset($coupon->data['minimum_qty_restrict']) && $coupon->data['minimum_qty_restrict'] != FALSE);
-  
+
   // Make sure the minimum quantity restriction (if any) is met.
   if (isset($coupon->data['minimum_qty'])) {
     if (($use_matched ? $matched : $total_qty) < (int)$coupon->data['minimum_qty']) {
        return t('You do not have enough applicable products in your cart.');
-    }      
+    }
   }
 
   // Make sure the minimum order total restriction (if any) is met.
@@ -940,7 +858,7 @@ function uc_coupon_calculate_discounts($coupon, $order) {
       return $use_matched ?
         t('You have not reached the minimum total of applicable products for this coupon.') :
         t('You have not reached the minimum order total for this coupon.');
-    }      
+    }
   }
 
   // Ensure that all products match, if specified.
@@ -972,7 +890,7 @@ function uc_coupon_calculate_discounts($coupon, $order) {
       // tax-inclusively also; that is, the actual discount is reduced so that the face value is
       // realized after taxes. (This already happens automatically for percentage based coupons).
       $included_rate = 1;
-      if ($coupon->type != 'percentage' && module_exists('uc_taxes')) {
+      if (module_exists('uc_taxes')) {
         foreach (uc_taxes_rate_load() as $tax) {
           if ($tax->display_include
               && is_array($tax->taxed_line_items) && in_array('coupon', $tax->taxed_line_items)
@@ -982,18 +900,18 @@ function uc_coupon_calculate_discounts($coupon, $order) {
           }
         }
       }
-      
+
       // Adjust the price for any stacked coupons.
       $prior_discount = 0;
-      if (!empty($order->coupons)) {
-        foreach ($order->coupons as $stacked) {
+      if (!empty($order->data['coupons'])) {
+        foreach ($order->data['coupons'] as $stacked) {
           if (isset($stacked[$item->nid])) {
-            $prior_discount += $stacked_coupons[$item->nid]->pretax_discount;
+            $prior_discount += $stacked[$item->nid]->pretax_discount;
           }
         }
       }
       $total -= $prior_discount * $included_rate;
-      
+
       $discounts[$item->nid] = (object) array(
         'qty' => 1,
         'price' => $item->price - $prior_discount,
@@ -1009,14 +927,11 @@ function uc_coupon_calculate_discounts($coupon, $order) {
     $total += $item->price * $included_rate;
   }
 
-  //dpm($total);
-  //dpm($included_rates);
   // Calculate the discounts per product.
   foreach ($discounts as $nid => $discount) {
+    $inclusive_price = $discount->price * $included_rates[$nid];
     switch ($coupon->type) {
       case 'price':
-        $inclusive_price = $discount->price * $included_rates[$nid];
-        //dpm($discount, "$nid: $inclusive_price");
         if ($coupon->data['apply_to'] == 'subtotal' || $coupon->data['apply_to'] == 'products_total') {
           // Apply single discount proportionally across all matching items.
           $discount->discount = $total == 0 ? 0 : min($coupon->value * ($inclusive_price / $total), $inclusive_price);
@@ -1025,22 +940,21 @@ function uc_coupon_calculate_discounts($coupon, $order) {
           // Apply discount to each product.
           $discount->discount = min($coupon->value * $discount->qty, $inclusive_price);
         }
-        $discount->pretax_discount = $discount->discount / $included_rates[$nid];
         break;
 
       case 'percentage':
-        $discount->discount = $discount->pretax_discount = $discount->price * $coupon->value / 100;
+        $discount->discount = $inclusive_price * $coupon->value / 100;
         break;
 
       case 'set_price':
-        $discount->discount = max($discount->price - ($coupon->value * $discount->qty), 0);
-        $discount->pretax_discount = $discount->discount / $included_rates[$nid];
+        $discount->discount = max($inclusive_price - ($coupon->value * $discount->qty), 0);
         break;
     }
+    $discount->pretax_discount = $discount->discount / $included_rates[$nid];
     unset($discount->price);
     unset($discount->qty);
   }
-  
+
   return $discounts;
 }
 
@@ -1130,7 +1044,7 @@ function theme_uc_coupon_form($variables) {
  */
 function uc_coupon_uc_cart_pane($items) {
   drupal_add_css(drupal_get_path('module', 'uc_coupon') . '/uc_coupon.css');
-  
+
   // The coupon entry cart pane.
   $body = drupal_get_form('uc_coupon_form', 'cart') + array(
     '#prefix' => '<div id="uc-cart-pane-coupon">',
@@ -1144,7 +1058,7 @@ function uc_coupon_uc_cart_pane($items) {
     'weight' => 1,
     'enabled' => TRUE,
   );
-  
+
   // The "Special Discounts" cart pane.
   $body = array();
   $discounts = _uc_coupon_options_list(uc_coupon_session_validate(), FALSE);
@@ -1169,7 +1083,7 @@ function uc_coupon_uc_cart_pane($items) {
     'weight' => 1,
     'enabled' => TRUE,
   );
-  
+
   return $panes;
 }
 
@@ -1182,7 +1096,7 @@ function theme_uc_coupon_automatic_discounts($variables) {
   foreach($items as $item) {
     $rows[] = array($item);
   }
-  $form['discounts'] = array( 
+  $form['discounts'] = array(
     '#theme' => 'table',
     '#rows' => $rows,
   );
@@ -1195,14 +1109,14 @@ function theme_uc_coupon_automatic_discounts($variables) {
 
 /**
  * Create a tapir table of validated coupons with a "Remove" button for each.
- * 
+ *
  * @param $coupons
  *     An array of coupon options of the form code => title
  * @param $ajax
  *     The #ajax array to apply to each remove button, or FALSE if the form
  *    is not ajax enabled.
  */
-function uc_coupon_table($coupons, $ajax=FALSE) {
+function uc_coupon_table($coupons, $ajax = FALSE) {
   $table = array(
     '#type' => 'tapir_table',
   );
@@ -1217,7 +1131,7 @@ function uc_coupon_table($coupons, $ajax=FALSE) {
       'weight' => 1,
     ),
   );
-  
+
   $i = 0;
   foreach ($coupons as $code => $title) {
     $table[$i] = array(
@@ -1236,7 +1150,7 @@ function uc_coupon_table($coupons, $ajax=FALSE) {
     }
     $i++;
   }
-  
+
   return $table;
 }
 
@@ -1245,7 +1159,7 @@ function uc_coupon_table($coupons, $ajax=FALSE) {
  * @param $coupons
  *     An array of validated coupon objects to include in the list.
  * @param $in_session
- *     TRUE to include only coupons currently added to the session.  
+ *     TRUE to include only coupons currently added to the session.
  *     FALSE to include those not in the session (e.g. automatic coupons).
  * @return
  *     An associative array mapping coupon code to coupon title.
@@ -1265,7 +1179,7 @@ function _uc_coupon_options_list($coupons, $in_session = TRUE) {
 function uc_coupon_checkout_submit($form, &$form_state) {
   unset($form_state['checkout_valid']);
   $form_state['redirect'] = 'cart/checkout';
-  $form_state['rebuild'] = TRUE;  
+  $form_state['rebuild'] = TRUE;
 }
 
 /**
@@ -1276,13 +1190,13 @@ function uc_coupon_checkout_submit($form, &$form_state) {
  * @param $ajax
  *     The #ajax array to be applied to all buttons, or FALSE for a non-ajax-enabled form.
  */
-function uc_coupon_form($form, $form_state, $context='block', $ajax = FALSE) {
+function uc_coupon_form($form, $form_state, $context = 'block', $ajax = FALSE) {
   $coupons = uc_coupon_session_validate();
   $components = variable_get('uc_coupon_form_components',
     drupal_map_assoc(variable_get('uc_coupon_allow_multiple', FALSE) ? array('entry') : array('entry', 'list')));
 
   // Show the coupon code entry component
-  if ($components['entry']) {
+  if (!empty($components['entry'])) {
     $form['code'] = array(
       '#type' => 'textfield',
       '#size' => 25,
@@ -1308,16 +1222,16 @@ function uc_coupon_form($form, $form_state, $context='block', $ajax = FALSE) {
       $form['apply']['#limit_validation_errors'] = array();
       $form['apply']['#submit'] = array('uc_coupon_checkout_submit');
     }
-    
+
   }
-  
+
   // Add active coupons components (table and/or list).
   $options = _uc_coupon_options_list($coupons);
   if (!empty($options)) {
-    if (isset($components['table']) && $components['table']) {
+    if (!empty($components['table'])) {
       $form['coupons_table'] = tapir_get_table('uc_coupon_table', $options, $ajax);
     }
-    if (isset($components['title']) && $components['list']) {
+    if (!empty($components['list'])) {
       $form['coupons'] = array(
         '#prefix' => '<div id="uc-coupon-active-coupons">',
         '#suffix' => '</div>',
@@ -1333,64 +1247,114 @@ function uc_coupon_form($form, $form_state, $context='block', $ajax = FALSE) {
         '#value' => t('Update order'),
         '#name' => 'uc-coupon-remove',
       );
-      
+
       if ($ajax) {
         $form['remove']['#ajax'] = $ajax;
       }
-      
+
       if ($context == 'checkout') {
         $form['remove']['#limit_validation_errors'] = array();
         $form['remove']['#submit'] = array('uc_coupon_checkout_submit');
       }
     }
   }
-  
+
   // Add context to help out themers.
   $form['#uc_coupon_form_context'] = $context;
-  
+
   return $form;
 }
 
 /**
  * Implements hook_uc_order().
- * 
- * This makes sure the active, validated coupons are saved to the order.  It also tweaks the order
- * total to be correct when tax-inclusive coupons are applied.
+ *
+ * This makes sure the active, validated coupons are saved to the order.
+ * It also prevents any fake coupon cart-items from being saved to the order.
  */
 function uc_coupon_uc_order($op, &$order) {
   if ($op == 'presave') {
-    // Apply any session coupons to the order.
-    if (!uc_coupon_session_suspend()) {
-      _uc_coupon_apply_to_order($order, uc_coupon_session_validate());
+    // Apply any session coupons to the current cart order.
+    if (_uc_coupon_is_checkout_order($order)) {
+      $coupons = uc_coupon_session_validate();
+      // Index existing line items by coupon code.
+      $items = array();
+      foreach ($order->line_items as $index => $line) {
+        if ($line['type'] == 'coupon') {
+          // For orders created before multi-coupons were enabled, the code was not saved with the line item.
+          // In this case, we retreive it from the uc_coupons_orders table.
+          $code = isset($line['data']['code']) ? $line['data']['code'] :
+              db_query('SELECT code FROM {uc_coupons_orders} WHERE oid = :oid', array(':oid' => $order_id))->fetchField();
+          $items[$code] = $index;
+        }
+      }
+
+      // Index existing entries in {uc_coupons_orders} by coupon code.
+      $entries = db_query('SELECT code, cuid FROM {uc_coupons_orders} WHERE oid = :oid',
+        array(':oid' => $order->order_id))->fetchAllKeyed(0,1);
+
+      // Update, insert or delete line items and entries in uc_coupons_orders.
+      $insert = array();
+      $order->data['coupons'] = array();
+      foreach($coupons as $coupon) {
+        $order->data['coupons'][$coupon->code] = $coupon->discounts;
+        // Handle entries in {uc_coupons_orders}.
+        if (isset($entries[$coupon->code])) {
+          db_update('uc_coupons_orders')->condition('cuid', $entries[$coupon->code])
+            ->fields(array('cid' => $coupon->cid, 'value' => $coupon->amount))
+            ->execute();
+          unset($entries[$coupon->code]);
+        }
+        else {
+          $insert[] = array($coupon->cid, $order->order_id, $coupon->code, $coupon->value);
+        }
+        // Handle line items.
+        if (isset($items[$coupon->code])) {
+          $line =& $order->line_items[$items[$coupon->code]];
+          $line['title'] = $coupon->title;
+          $line['amount'] = -$coupon->pretax_amount;
+          $line['data']['code'] = $coupon->code;
+          uc_order_update_line_item($line['line_item_id'], $line['title'], $line['amount'], $line['data']);
+          unset($items[$coupon->code]);
+        }
+        else {
+          // Create a new line item.
+          $order->line_items[] = uc_order_line_item_add($order->order_id, 'coupon',
+            $coupon->title,
+            -$coupon->pretax_amount,
+            _uc_line_item_data('coupon', 'weight'),
+            array('code' => $coupon->code)
+          );
+        }
+      }
+
+      // Insert new entries in {uc_coupons_orders}
+      if (!empty($insert)) {
+        $query = db_insert('uc_coupons_orders');
+        $query->fields(array('cid', 'oid', 'code', 'value'));
+        foreach ($insert as $fields) {
+          $query->values($fields);
+        }
+        $query->execute();
+      }
+      // Delete orphaned entries in {uc_coupons_orders}
+      if (!empty($entries)) {
+        db_delete('uc_coupons_orders')->condition('cuid', $entries)->execute();
+      }
+      // Remove orphaned line-items.
+      foreach ($items as $index) {
+        uc_order_delete_line_item($order->line_items[$index]['line_item_id']);
+        unset($order->line_items[$index]);
+      }
+      usort($order->line_items, 'uc_weight_sort');
     }
     // Make sure any fake cart items don't get saved with the order if the checkout page is skipped
     // (e.g. Paypal Express Checkout, Google Checkout)
     foreach ($order->products as $key => $product) {
-      if ($product->module == 'uc_coupon') {
+      if (isset($product->module) && $product->module == 'uc_coupon') {
         unset($order->products[$key]);
       }
     }
   }
-  // Ensure that the order total is calculated properly when tax-inclusive coupon discounts are applied.
-  elseif ($op == 'total' && isset($order->data['coupons']) && module_exists('uc_taxes')) {
-    $adjustment = 0;
-    foreach ($order->data['coupons'] as $items) {
-      foreach ($items as $item) {
-        $adjustment += $item->discount - $item->pretax_discount;
-      }
-    }
-    return $adjustment;
-  }
-}
-
-/**
- * Implementation of hook_form_FORM_ID_alter() for the order edit form.
- * 
- * Clear the session coupons when the order edit form is built to avoid inadvertently
- * saving them to an old order.
- */
-function uc_coupon_form_uc_order_edit_form_alter(&$form, $form_state) {
-  uc_coupon_session_suspend(TRUE);
 }
 
 /**
@@ -1416,7 +1380,7 @@ function uc_coupon_uc_checkout_pane() {
     'weight' => 5,
     'process' => FALSE,
   );
-  
+
   return $panes;
 }
 
@@ -1428,15 +1392,18 @@ function uc_coupon_checkout_update($form, $form_state) {
   if (isset($form['panes']['coupon_automatic'])) {
     $commands[] = ajax_command_replace('#coupon_automatic-pane', drupal_render($form['panes']['coupon_automatic']));
   }
-  if (isset($form['panes']['payment']['line_items'])) {
-    $commands[] = ajax_command_replace('#line-items-div', drupal_render($form['panes']['payment']['line_items']));
-  }  
+  if (isset($form['panes']['payment'])) {
+    $commands[] = ajax_command_replace('#payment-pane', drupal_render($form['panes']['payment']));
+  }
+  if (isset($form['panes']['quotes'])) {
+    $commands[] = ajax_command_replace('#quotes-pane', drupal_render($form['panes']['quotes']));
+  }
   if (variable_get('uc_coupon_show_in_cart', TRUE) && isset($form['panes']['cart']['cart_review_table'])) {
     $commands[] = ajax_command_html('#cart-pane>div', drupal_render($form['panes']['cart']['cart_review_table']));
   }
   // Clear the coupon code, but only if the submission was successful.
   if (count(drupal_get_messages('error', FALSE)) == 0) {
-    $commands[] = ajax_command_invoke('#coupon-pane input[type=text]', 'val', array('')); 
+    $commands[] = ajax_command_invoke('#coupon-pane input[type=text]', 'val', array(''));
   }
   // Make sure all checkboxes are checked.
   $commands[] = ajax_command_invoke('#coupon-pane input[type=checkbox]', 'attr', array('checked', 'true'));
@@ -1448,7 +1415,7 @@ function uc_coupon_checkout_update($form, $form_state) {
 /**
  * A checkout pane listing any automatic discounts.
  */
-function uc_checkout_pane_coupon_automatic($op, &$order, $form=NULL, &$form_state=NULL) {
+function uc_checkout_pane_coupon_automatic($op, &$order, $form = NULL, &$form_state = NULL) {
   if ($op == 'view') {
     $discounts = _uc_coupon_options_list(uc_coupon_session_validate(), FALSE);
     if (empty($discounts)) {
@@ -1462,7 +1429,7 @@ function uc_checkout_pane_coupon_automatic($op, &$order, $form=NULL, &$form_stat
         '#items' => _uc_coupon_options_list(uc_coupon_session_validate(), FALSE)
       );
     }
-      
+
     return array(
       'theme' => 'uc_coupon_automatic_discounts',
       'contents' => array(
@@ -1478,8 +1445,17 @@ function uc_checkout_pane_coupon_automatic($op, &$order, $form=NULL, &$form_stat
  * Used to display a form in the checkout process so that customers
  * can enter discount coupons.
  */
-function uc_checkout_pane_coupon($op, &$order, $form=NULL, &$form_state=NULL) {
+function uc_checkout_pane_coupon($op, &$order, $form = NULL, &$form_state = NULL) {
   switch ($op) {
+    case 'prepare':
+      // Remove fake cart items from the order.
+      foreach ($order->products as $key => $product) {
+        if (isset($product->module) && $product->module == 'uc_coupon') {
+          unset($order->products[$key]);
+        }
+      }
+      break;
+
     case 'view':
       drupal_add_css('#coupon-messages { clear: both; }', array('type' => 'inline', 'group' => CSS_DEFAULT));
       $ajax = array(
@@ -1501,13 +1477,13 @@ function uc_checkout_pane_coupon($op, &$order, $form=NULL, &$form_state=NULL) {
       $trigger = $form_state['triggering_element']['#name'];
       if (substr($trigger, 0, 9) == 'uc-coupon') {
         $form_state['rebuild'] = TRUE;
-        uc_coupon_form_submit($form, $form_state); 
-        uc_cart_get_contents(NULL, TRUE); // Rebuild the cart contents to force revalidation.
+        uc_coupon_form_submit($form, $form_state);
+        uc_coupon_session_validate($order->products);
         return FALSE; // Prevent redirection.
       }
       else {
         // !TODO Coupon will not be validated if "Apply to order" is not clicked.  Is this what we want?
-        return TRUE; 
+        return TRUE;
       }
 
     case 'settings':
@@ -1531,13 +1507,13 @@ function uc_checkout_pane_coupon($op, &$order, $form=NULL, &$form_state=NULL) {
 function uc_coupon_form_submit($form, $form_state) {
   $trigger = $form_state['triggering_element']['#name'];
   // Determine where the values are (they will be in the pane subarray if called from checkout page).
-  $values = isset($form_state['values']['panes']['coupon']) ? 
+  $values = isset($form_state['values']['panes']['coupon']) ?
       $form_state['values']['panes']['coupon'] : $form_state['values'];
 
-  // If this was the result of a 'remove' submission. 
+  // If this was the result of a 'remove' submission.
   if (substr($trigger, 0, 16) == 'uc-coupon-remove') {
     // See if there was an individual remove button clicked.
-    $code = substr($trigger, 17); 
+    $code = substr($trigger, 17);
     if (!empty($code)) {
       uc_coupon_session_clear($code);
       drupal_set_message(t('Coupon "%code" has been removed from your order', array('%code' => $code)));
@@ -1578,108 +1554,12 @@ function uc_coupon_form_submit($form, $form_state) {
       $removed = TRUE;
     }
     if (!empty($code)) {
-      if (uc_coupon_session_get($code)) {
-        drupal_set_message(t("The coupon has already been applied to your order."));
-      }
-      else { 
-        uc_coupon_session_add($code, 'submit');
-      }
+      uc_coupon_session_add($code, 'submit');
     }
     elseif (!$removed) {
       drupal_set_message(t("You must enter a valid coupon code."), 'error');
     }
   }
-}
-
-/**
- * Apply a set of coupons to an order.  
- * 
- * Line items and entries in the uc_coupons_orders table will be added for each coupon.  Any coupon line items
- * or entries which are not in the list of coupons will be removed.  Additionally, the coupons' discount
- * arrays will be added to the order object's data array.
- * 
- * @param $order
- *     The order to which the coupons should be applied.
- * @param $coupons
- *    An associative array of fully validated coupon objects, keyed by the coupon code.
- */
-function _uc_coupon_apply_to_order(&$order, $coupons) {
-  // Save the discounts into the $order object's data array.
-  unset($order->data['coupons']);
-  if (!empty($coupons)) {
-    $order->data['coupons'] = array();
-    foreach($coupons as $coupon) {
-      $order->data['coupons'][$coupon->code] = $coupon->discounts;
-    }
-  }
-  
-  // Remove existing coupon line items from the order object.
-  foreach ($order->line_items as $index => $line) {
-    if ($line['type'] == 'coupon') {
-      unset($order->line_items[$index]);
-    }
-  }
-  
-  // Update or remove existing stored line items and entries in {uc_coupons_orders}.
-  $order_id = $order->order_id;
-  $lines = db_query("SELECT * FROM {uc_order_line_items} WHERE order_id = :order_id AND type = :type", 
-      array(':order_id' => $order_id, ':type' => 'coupon'))->fetchAllAssoc('line_item_id', PDO::FETCH_ASSOC);
-  foreach ($lines as $lid => $line) {
-    if (isset($line['data'])) {
-      $line['data'] = unserialize($line['data']);
-    }
-    // For orders created before multi-coupons were enabled, the code was not saved with the line item.
-    // In this case, we retreive it from the uc_coupons_orders table.
-    if (!isset($line['data']['code'])) {
-      $line['data']['code'] = db_query('SELECT code FROM {uc_coupons_orders} WHERE oid = :oid', array(':oit' => $order_id))->fetchField();
-    }
-    $code = $line['data']['code'];
-    if (isset($coupons[$code])) {
-      $coupon = $coupons[$code];
-      db_update('uc_coupons_orders')
-        ->fields(array(
-            'cid' => $coupon->cid,
-            'value' => $coupon->amount,
-          ))
-        ->condition('oid', $order_id)
-        ->condition('code', $code)
-        ->execute();
-      $line['title'] = $coupon->title;
-      $line['amount'] = -$coupon->amount;
-      uc_order_update_line_item($lid, $line['title'], $line['amount'], $line['data']);
-      $order->line_items[] = $line;
-    }
-    else {
-      db_delete('uc_coupons_orders')
-        ->condition('oid', $order_id)
-        ->condition('code', $code)
-        ->execute();
-      uc_order_delete_line_item($lid);
-    }
-    unset($coupons[$code]);
-  }
-  
-  // Create new line items and entries in {uc_coupons_orders} for any coupons not yet dealt with.
-  foreach ($coupons as $code => $coupon) {
-    $id = db_insert('uc_coupons_orders')
-      ->fields(array(
-          'cid' => $coupon->cid,
-          'oid' => $order_id,
-          'code' => $code,
-          'value' => $coupon->amount,
-        ))
-      ->execute();
-    $line = array(
-      'type' => 'coupon',
-      'title' => $coupon->title,
-      'amount' => -$coupon->amount,
-      'weight' => _uc_line_item_data('coupon', 'weight'),
-      'data' => array('code' => $code),
-    );  
-    uc_order_line_item_add($order_id, $line['type'], $line['title'], $line['amount'], $line['weight'], $line['data']);
-    $order->line_items[] = $line;
-  }
-  usort($order->line_items, 'uc_weight_sort');
 }
 
 /**
@@ -1689,8 +1569,7 @@ function uc_coupon_uc_line_item() {
   $items[] = array(
     'id' => 'coupon',
     'title' => t('Coupon discount'),
-    // !TODO Restore the following if uc_taxes ever supports it.
-    //'tax_adjustment' => 'uc_coupon_tax_adjustment',
+    'tax_adjustment' => 'uc_coupon_tax_adjustment',
     'weight' => 0,
     'default' => FALSE,
     'stored' => TRUE,
@@ -1700,36 +1579,6 @@ function uc_coupon_uc_line_item() {
   return $items;
 }
 
-/**
- * Implements hook_uc_line_item_alter().
- */
-function uc_coupon_uc_line_item_alter(&$item, $order) {
-  if (module_exists('uc_taxes')) {
-    switch ($item['type']) {
-      // Adjust the pre-tax subtotal to exclude the portion of a tax-inclusive coupon that applies to the tax.
-      case 'tax_subtotal':
-        $item['amount'] += uc_coupon_uc_order('total', $order);
-        break;
-  
-      // Adjust the total tax so that each tax is applied to coupon on a per-product basis.
-      // !TODO - Remove this if patch to uc_taxes from http://drupal.org/node/1155656 is committed.
-      case 'tax':
-        $tax = uc_taxes_rate_load($item['data']['tax_id']);
-        if (is_array($tax->taxed_line_items)
-            && in_array('coupon', $tax->taxed_line_items)
-            && isset($order->data['coupons'])) {
-          $old_value = 0;
-          foreach ($order->data['coupons'] as $discounts) {
-            foreach ($discounts as $discount) {
-              $old_value += $discount->discount;
-            }
-          }
-          $item['amount'] += (uc_coupon_tax_adjustment(-1, $order, $tax) + $old_value) * $tax->rate;
-        }
-        break;
-    }
-  }
-}
 
 /**
  * Handle tax on coupons by calculating tax for individual discounted prices.
@@ -1786,18 +1635,31 @@ function uc_coupon_uc_cart_alter(&$items) {
   if (variable_get('uc_coupon_show_in_cart', TRUE) && !empty($coupons)) {
     // If there are some valid coupons, then add them to the cart.
     foreach ($coupons as $code => $coupon) {
-      $items[] = (object) array(
-        'cart_item_id' => 0,
-        'module' => 'uc_coupon',
-        'title' => $coupon->title,
-        'nid' => 0,
-        'qty' => 1,
-        'price' => -$coupon->amount,
-        'data' => array('shippable' => FALSE, 'code' => $coupon->code, 'remove' => uc_coupon_session_get($code)),
-        'model' => 0,
-      );
+      $items[] = _uc_coupon_cart_item($coupon);
     }
   }
+}
+
+/**
+ * Creates a fake cart-item corrresponding to this coupon, allowing this coupon to be displayed in the cart.
+ *
+ * @param $coupon
+ *   The coupon to be displayed in the cart.
+ */
+function _uc_coupon_cart_item($coupon) {
+  // Assign this a unique cart_item_id so it will be keyed properly by entity_view().
+  $id = -hexdec(substr(sha1($coupon->code), -8));
+  return (object) array(
+    'cart_item_id' => $id,
+    'module' => 'uc_coupon',
+    'title' => $coupon->title,
+    'nid' => 0,
+    'qty' => 1,
+    'price' => -$coupon->amount,
+    'data' => array('module' => 'uc_coupon', 'shippable' => FALSE, 'code' => $coupon->code, 'remove' => uc_coupon_session_get($coupon->code)),
+    'model' => 0,
+    'weight' => 0
+  );
 }
 
 /**
@@ -1812,6 +1674,7 @@ function uc_coupon_uc_cart_display($item) {
     'qty' => array('#type' => 'hidden', '#value' => 1, '#default_value' => 1),
     '#total' => $item->price,
     'data' => array('#type' => 'hidden', '#value' => serialize($item->data)),
+    '#suffixes' => array(),
   );
   if ($item->data['remove']) {
     $display_item['remove'] = array('#type' => 'submit', '#value' => t('Remove'));
@@ -1852,35 +1715,23 @@ function uc_coupon_theme_uc_cart_block_content($variables) {
  *
  * Remove any coupon cart items from the serialized cart contents and payment-pane
  * order, as coupons will be handled as line items during checkout.
- * 
+ *
  * Collapse coupon checkout pane, if configured to do so.
  */
 function uc_coupon_form_uc_cart_checkout_form_alter(&$form, $form_state) {
-  $coupons = uc_coupon_session_validate();
-  if (variable_get('uc_coupon_show_in_cart', TRUE) && !empty($coupons)) {
-    $items = unserialize($form['cart_contents']['#value']);
-    foreach ($items as $key => $item) {
-      if ($item->module == 'uc_coupon') {
-        unset($items[$key]);
-      }
-    }
-    $form['cart_contents']['#value'] = serialize($items);
-    // Make sure the fake uc_coupon cart item doesn't add to the total of the payment
-    // preview pane once it has been recorded as a line item.  This is necessary because
-    // uc_checkout_pane_cart('view') resets the $order->products field to the cart contents
-    // when rebuilding form after an AJAX submission.
-    if (isset($form['panes']['payment']['line_items']['#order'])) {
-      $order = $form['panes']['payment']['line_items']['#order'];
-      foreach ($order->line_items as $line) {
-        if ($line['type'] == 'coupon') {
-          $form['panes']['payment']['line_items']['#order']->products = $items;
-        }
-      }
-    }
-  }
-
   if (variable_get('uc_coupon_collapse_pane', FALSE) && isset($form['panes']['coupon'])) {
     $form['panes']['coupon']['#collapsed'] = TRUE;
+  }
+
+  // Show current session coupons in the cart pane (since now they will have been removed from the order).
+  if (variable_get('uc_coupon_show_in_cart', TRUE) && isset($form['panes']['cart'])) {
+    $coupons = uc_coupon_session_validate();
+    // If there are some valid coupons, then add them to the cart.
+    foreach ($coupons as $code => $coupon) {
+      $item = _uc_coupon_cart_item($coupon);
+      $item->order_product_id = $item->cart_item_id;
+      $form['panes']['cart']['cart_review_table']['#items'][] = $item;
+    }
   }
 }
 
@@ -1910,8 +1761,8 @@ function template_preprocess_uc_coupon_certificate(&$variables) {
 
   if ($coupon->valid_until) {
     $variables['not_yet_valid'] = $coupon->valid_from > REQUEST_TIME;
-    $variables['valid_from'] = format_date($coupon->valid_from, 'custom', variable_get('uc_date_format_default', 'm/d/Y'));
-    $variables['valid_until'] = format_date($coupon->valid_until, 'custom', variable_get('uc_date_format_default', 'm/d/Y'));
+    $variables['valid_from'] = format_date($coupon->valid_from, 'custom', variable_get('date_format_uc_store', 'm/d/Y'));
+    $variables['valid_until'] = format_date($coupon->valid_until, 'custom', variable_get('date_format_uc_store', 'm/d/Y'));
   }
   else {
     $variables['not_yet_valid'] = FALSE;
@@ -1954,21 +1805,22 @@ function template_preprocess_uc_coupon_certificate(&$variables) {
 
   // Merge in global tokens.
   $info = token_info();
+  //dpm($info);
   foreach ($info['types'] as $type => $type_info) {
-    if (empty($type_info['needs-data'])) {
+    if (empty($type_info['needs-data']) && $type != 'current-user' && $type != 'current-date') {
       $type_key = !empty($type_info['type']) ? $type_info['type'] : $type;
       if (!empty($info['tokens'][$type_key])) {
         foreach (array_keys($info['tokens'][$type_key]) as $token) {
-          $variables[str_replace('-', '_', $type_key) . '_' . str_replace('-', '_', $token)] = token_replace("[$type_key:$token]");  
+          $variables[str_replace('-', '_', $type_key) . '_' . str_replace('-', '_', $token)] = token_replace("[$type_key:$token]");
         }
       }
     }
   }
-
+  
   if (isset($variables['coupon']->data['base_cid'])) {
-    $variables['template_files'][] = 'uc_coupon-certificate-base-' . $variables['coupon']->data['base_cid'];
+    $variables['theme_hook_suggestions'][] = 'uc_coupon_certificate__base_' . $variables['coupon']->data['base_cid'];
   }
-  $variables['template_files'][] = 'uc_coupon-certificate-' . $variables['coupon']->cid;
+  $variables['theme_hook_suggestions'][] = 'uc_coupon_certificate__' . $variables['coupon']->cid;
 }
 
 /**
@@ -2032,4 +1884,17 @@ function uc_coupon_views_api() {
     'api' => '2.0',
     'path' => drupal_get_path('module', 'uc_coupon') . '/views',
   );
+}
+
+/**
+ * Check whether an order is the order being checked out by the current user.
+ * @param $order
+ */
+function _uc_coupon_is_checkout_order($order) {
+  global $user;
+  return isset($_SESSION['cart_order'])
+    && isset($order->order_id)
+    && $order->order_id == $_SESSION['cart_order']
+    && uc_order_status_data($order->order_status, 'state') == 'in_checkout'
+    && $user->uid == $order->uid;
 }

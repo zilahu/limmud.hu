@@ -343,7 +343,9 @@ function uc_product_update_7002() {
  * Set default display settings for product teasers.
  */
 function uc_product_update_7003() {
-  foreach (uc_product_types() as $type) {
+  $types = db_query("SELECT pcid FROM {uc_product_classes}")->fetchCol();
+  array_unshift($types, 'product');
+  foreach ($types as $type) {
     uc_product_set_teaser_display($type);
   }
 
@@ -360,4 +362,22 @@ function uc_product_update_7004() {
   variable_del('uc_product_add_to_cart_teaser');
   variable_del('uc_teaser_add_to_cart_text');
   variable_del('uc_product_add_to_cart_text');
+}
+
+/**
+ * Sets default display settings for product teasers.
+ */
+function uc_product_set_teaser_display($type) {
+  $settings = field_bundle_settings('node', $type);
+  $settings['view_modes']['teaser']['custom_settings'] = TRUE;
+
+  $fields = array('model', 'list_price', 'cost', 'weight', 'dimensions');
+  foreach ($fields as $field) {
+    $settings['extra_fields']['display'][$field]['teaser'] = array(
+      'weight' => 0,
+      'visible' => FALSE,
+    );
+  }
+
+  field_bundle_settings('node', $type, $settings);
 }

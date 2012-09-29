@@ -2,7 +2,7 @@
 
 /**
  * @file
- * This include file implements coder functionality for Ubercart 6.x -> 7.x upgrades.
+ * Implements Coder Upgrade functionality for Ubercart 6.x -> 7.x upgrades.
  */
 
 /**
@@ -50,6 +50,21 @@ function coder_review_uc3x_reviews() {
       '#warning' => 'uc_payment_process() is now uc_payment_process_payment() because of hook_process().',
     ),
 
+    // uc_add_js() was removed, use drupal_add_js() instead.
+    array(
+      '#type' => 'grep',
+      '#value' => 'uc_add_js(',
+      '#warning' => 'uc_add_js() has been removed.  Use drupal_add_js() instead.',
+    ),
+
+    // First argument to uc_product_get_models() and hook_uc_product_models()
+    // changed from $node to $nid.
+    array(
+      '#type' => 'regex',
+      '#value' => '(\buc_product_get_models|\B_uc_product_models)\s*\(',
+      '#warning' => 'First argument to uc_product_get_models() and hook_uc_product_models() has changed - it is now an integer node id instead of a node object.',
+    ),
+
     // Checkout and order pane callback arguments changed.
     array(
       '#type' => 'regex',
@@ -86,6 +101,13 @@ function coder_review_uc3x_reviews() {
       '#value' => 'theme\s*\(\s*[\'"]uc_product_price[\'"]\s*,[^,]+,',
       '#not' => '[\'"]#price',
       '#warning' => 'theme_uc_product_price() takes a render element with a "#value" and optional "#title" and "#attributes".'
+    ),
+
+    // uc_order_load_line_items() has only one argument.
+    array(
+      '#type' => 'regex',
+      '#value' => 'uc_order_load_line_items\([^,]+,',
+      '#warning' => 'uc_order_load_line_items() takes only one argument, the order object. Both stored and calculated line items are returned at once.',
     ),
   );
 

@@ -210,4 +210,67 @@ function hook_uc_coupon_remove($coupon) {
 }
 
 
- 
+/**
+ * Add extra validation to a coupon.
+ * 
+ * @param $coupon
+ *   The coupon object to validate, with special fields set as follows:
+ *   - $coupon->code: The specific code to be applied (even for bulk coupons).
+ *   - $coupon->amount: If $order !== FALSE, the discount that should be applied.
+ *   - $coupon->usage: Coupon usage data from uc_coupon_count_usage().
+ * @param $order
+ *   The order against which this coupon is to be applied, or FALSE to bypass order validation.
+ * @param $account
+ *   The account of the user trying to use the coupon, or FALSE to bypass user validation.
+ *
+ * @return
+ *   TRUE if the coupon should be accepted.
+ *   NULL to allow other modules to determine validation.
+ *   Otherwise, a string describing the reason for failure.
+ */
+function hook_uc_coupon_validate(&$coupon, $order, $account) {
+  // Check for allowed combinations.
+  if (!empty($order->data['coupons'])) {
+    foreach (array_keys($order->data['coupons']) as $code) {
+      $other = uc_coupon_find($code);
+      $other_listed = !empty($coupon->data['combinations']) && in_array($other->cid, $coupon->data['combinations']);
+      $this_ok = (isset($coupon->data['negate_combinations']) xor $other_listed);
+      $this_listed = !empty($other->data['combinations']) && in_array($coupon->cid, $other->data['combinations']);
+      $other_ok = (isset($other->data['negate_combinations']) xor $this_listed);
+      if (!$this_ok || !$other_ok) {
+        return t('This coupon combination is not allowed.');
+      }
+    }
+  }
+
+  // Check maximum usage per code.
+  if ($coupon->max_uses > 0 && !empty($coupon->usage['codes'][$coupon->code]) && $coupon->usage['codes'][$coupon->code] >= $coupon->max_uses) {
+    return t('This coupon has reached the maximum redemption limit.');
+  }
+
+  // Check maximum usage per user.
+  if ($account && isset($coupon->data['max_uses_per_user']) && $coupon->usage['user'] >= $coupon->data['max_uses_per_user']) {
+    return t('This coupon has reached the maximum redemption limit.');
+  }
+
+  // Check user ID.
+  if ($account && isset($coupon->data['users'])) {
+    if (in_array("$account->uid", $coupon->data['users'], TRUE) xor !isset($coupon->data['negate_users'])) {
+      return t('Your user ID is not allowed to use this coupon.');
+    }
+  }
+
+  // Check roles.
+  if ($account && isset($coupon->data['roles'])) {
+    $role_found = FALSE;
+    foreach ($coupon->data['roles'] as $role) {
+      if (in_array($role, $account->roles)) {
+        $role_found = TRUE;
+        break;
+      }
+    }
+    if ($role_found xor !isset($coupon->data['negate_roles'])) {
+      return t('You do not have the correct permission to use this coupon.');
+    }
+  }
+}

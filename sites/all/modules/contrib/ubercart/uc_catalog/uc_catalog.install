@@ -6,51 +6,13 @@
  */
 
 /**
- * Implements hook_install().
- *
- * Creates a Catalog vocabulary or uses one by that name that may already exist.
+ * Implements hook_enable().
  */
-function uc_catalog_install() {
-  $t = get_t();
-  // Find possible Product Catalog vocabulary.
-  $vid = db_query("SELECT vid FROM {taxonomy_vocabulary} WHERE name = :name", array(':name' => $t('Catalog')))->fetchField();
-
-  // If none, create one.
-  if (!$vid) {
-    $vocabulary = new stdClass();
-    $vocabulary->name = $t('Catalog');
-    $vocabulary->description = '';
-    $vocabulary->hierarchy = 1;
-    $vocabulary->module = 'uc_catalog';
-    $vocabulary->machine_name = 'catalog';
-
-    taxonomy_vocabulary_save($vocabulary);
-    $vid = $vocabulary->vid;
-
-    $field = field_info_field('taxonomy_' . $vocabulary->machine_name);
-    if (empty($field)) {
-      $field = array(
-        'field_name' => 'taxonomy_' . $vocabulary->machine_name,
-        'type' => 'taxonomy_term_reference',
-        'cardinality' => FIELD_CARDINALITY_UNLIMITED,
-        'settings' => array(
-          'allowed_values' => array(
-            array(
-              'vocabulary' => $vocabulary->machine_name,
-              'parent' => 0,
-            ),
-          ),
-        ),
-      );
-
-      field_create_field($field);
-    }
+function uc_catalog_enable() {
+  foreach (uc_product_types() as $type) {
+    uc_catalog_add_node_type($type);
   }
-
   uc_catalog_add_image_field();
-
-  variable_set('uc_catalog_vid', $vid);
-  variable_set('uc_catalog_name', $t('Catalog'));
 }
 
 /**
@@ -59,7 +21,7 @@ function uc_catalog_install() {
 function uc_catalog_uninstall() {
   if ($vid = variable_get('uc_catalog_vid', 0)) {
     $vocab = taxonomy_vocabulary_load($vid);
-    drupal_set_message(t('The Ubercart Catalog vocabulary has not been deleted. If you need to delete it, <a href="!url">please do so manually</a>.', array('!url' => url('admin/structure/taxonomy/' . $vocab->machine_name . '/edit'))), 'warning');
+    drupal_set_message(t('The Ubercart Catalog vocabulary has not been deleted. If you need to delete it, <a href="@url">please do so manually</a>.', array('@url' => url('admin/structure/taxonomy/' . $vocab->machine_name . '/edit'))), 'warning');
   }
 
   db_delete('variable')
@@ -72,6 +34,7 @@ function uc_catalog_uninstall() {
  */
 function uc_catalog_update_dependencies() {
   $dependencies['uc_catalog'][7000] = array(
+    'system' => 7020,
     'taxonomy' => 7002,
   );
   $dependencies['uc_catalog'][7001] = array(
@@ -91,7 +54,7 @@ function uc_catalog_update_dependencies() {
  * Implements hook_update_last_removed().
  */
 function uc_catalog_update_last_removed() {
-  return 9;
+  return 8;
 }
 
 /**
@@ -240,13 +203,12 @@ function uc_catalog_update_7003() {
     unset($field['id']);
     field_create_field($field);
 
-    $label = variable_get('uc_catalog_name', t('Catalog'));
     foreach ($field['bundles'] as $type) {
       $instance = array(
         'field_name' => 'taxonomy_catalog',
         'entity_type' => 'node',
         'bundle' => $type,
-        'label' => $label,
+        'label' => t('Catalog'),
         'settings' => array(
           'allowed_values' => array(
             array(
@@ -288,4 +250,11 @@ function uc_catalog_update_7005() {
   variable_del('uc_catalog_grid_display_sell_price');
   variable_del('uc_catalog_grid_display_add_to_cart');
   variable_del('uc_catalog_grid_display_attributes');
+}
+
+/**
+ * Delete unused catalog name variable.
+ */
+function uc_catalog_update_7006() {
+  variable_del('uc_catalog_name');
 }

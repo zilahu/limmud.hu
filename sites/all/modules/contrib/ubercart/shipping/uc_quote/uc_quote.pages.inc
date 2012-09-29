@@ -6,7 +6,7 @@
  */
 
 /**
- * Pulls the get_quote_from_* triggers and assemble their returned data.
+ * Pulls the get_quote_from_* triggers and assembles their returned data.
  */
 function uc_quote_assemble_quotes($order) {
   global $user;
@@ -16,10 +16,21 @@ function uc_quote_assemble_quotes($order) {
   }
 
   $products = $order->products;
+  foreach ($products as $id => $product) {
+    $node = (array) node_load($product->nid);
+    foreach ($node as $key => $value) {
+      if (!isset($product->$key)) {
+        $product->$key = $value;
+      }
+    }
+    $order->products[$id] = $product;
+  }
+
   $shipping_types = array();
   foreach ($products as $product) {
     $shipping_types[] =  uc_product_get_shipping_type($product);
   }
+
   $shipping_types = array_unique($shipping_types);
   $all_types = uc_quote_get_shipping_types();
   $shipping_type = '';
@@ -34,8 +45,7 @@ function uc_quote_assemble_quotes($order) {
       $type_weight = $all_types[$type]['weight'];
     }
   }
-  $methods = array_filter(module_invoke_all('uc_shipping_method'), '_uc_quote_method_enabled');
-  uasort($methods, '_uc_quote_type_sort');
+  $methods = uc_quote_methods();
   foreach ($methods as $id => $method) {
     if ($method['quote']['type'] != 'order' && $method['quote']['type'] != $shipping_type) {
       unset($methods[$id]);
@@ -44,15 +54,8 @@ function uc_quote_assemble_quotes($order) {
 
   $quote_data = array();
   foreach ($methods as $method) {
-    if (module_exists('rules')) {
-      $set = rules_config_load('get_quote_from_' . $method['id']);
-      $apply = !$set || $set->execute($order);
-    }
-    else {
-      $apply = TRUE;
-    }
-
-    if ($apply) {
+    $set = rules_config_load('get_quote_from_' . $method['id']);
+    if (!$set || $set->execute($order)) {
       $data = uc_quote_action_get_quote($order, $method);
 
       foreach ($data as &$quote) {
@@ -99,7 +102,7 @@ function uc_quote_action_get_quote($order, $method) {
     // methods won't mess up the products in their methods.
     $products = array();
     foreach ($order->products as $key => $item) {
-      if (uc_cart_product_is_shippable($item)) {
+      if (uc_order_product_is_shippable($item)) {
         $products[$key] = clone $item;
       }
     }

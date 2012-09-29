@@ -36,17 +36,6 @@ function uc_coupon_rules_condition_info() {
         'description' => t('Enter coupon codes that this condition will apply to, one per line. Wildcards are allowed, e.g. COUPON* will match all codes beginning with COUPON. Leave blank to apply to any order with a coupon.'),
         'restriction' => 'input',
       ),
-      'check_current' => array(
-        'type' => 'boolean',
-        'label' => t('Include currently applied coupon (if any).'),
-        'description' => t('Check this box if this condition will apply only to orders that
-    			are currently in checkout, in order to catch coupons applied before an order reaches
-    			the review stage (e.g. for shipping quotes).  Leave unchecked if the condition will
-    			apply to orders after checkout is complete (e.g. when payment notification is received 
-    			or when order status is updated manually).'),
-        'restriction' => 'input',
-        'default value' => TRUE,
-      ),
     ),
   );
   
@@ -67,18 +56,18 @@ function uc_coupon_rules_condition_info() {
 /**
  * Check if an order has a coupon applied.
  */
-function uc_coupon_condition_order_has_coupon($order, $codes=array(), $check_current) {
+function uc_coupon_condition_order_has_coupon($order, $codes=array()) {
   $check_codes = array();
-  // We start with current valid codes, if specified
-  if ($check_current) {
+  // If the order is in checkout by the current user, use the current session coupons.
+  if (_uc_coupon_is_checkout_order($order)) {
     $coupons = uc_coupon_session_validate();
     foreach ($coupons as $coupon) {
       $check_codes[$coupon->code] = $coupon->code;
     }
   }
   // Now add any codes alreay in the order object (these take precedence).
-  if (isset($order->data['coupons'])) {
-    $check_codes = array_merge($check_codes, drupal_map_assoc(array_keys($order->data['coupons'])));
+  elseif (isset($order->data['coupons'])) {
+    $check_codes = drupal_map_assoc(array_keys($order->data['coupons']));
   }
   //dpm($check_codes,'here');
   if (count($check_codes) > 0) {

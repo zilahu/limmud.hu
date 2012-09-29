@@ -2,8 +2,7 @@
 
 /**
  * @file
- * This file contains the callbacks for the default checkout panes supplied with
- * Ubercart and their corresponding helper functions.
+ * Callbacks for the default Ubercart checkout panes plus helper functions.
  *
  * Checkout panes are defined using hook_uc_checkout_pane() and use a callback
  * to handle the different processes involved in completing the checkout form.
@@ -25,15 +24,8 @@ function uc_checkout_pane_cart($op, $order, $form = NULL, &$form_state = NULL) {
       return array('contents' => $contents, 'next-button' => FALSE);
 
     case 'review':
-      $output = '<table>';
-      foreach ($order->products as $item) {
-        $desc = check_plain($item->title) . uc_product_get_description($item);
-
-        $output .= '<tr valign="top"><td>' . $item->qty . '&times;</td><td width="100%">' . $desc
-                  . '</td><td nowrap="nowrap">' . theme('uc_price', array('price' => $item->price * $item->qty)) . '</td></tr>';
-      }
-      $output .= '</table>';
-      $review[] = $output;
+      //$review[] = theme('uc_checkout_pane_cart_review', array('items' => $order->products));
+      $review[] = theme('uc_cart_review_table', array('items' => $order->products, 'show_subtotal' => FALSE));
       return $review;
   }
 }
@@ -169,7 +161,10 @@ function uc_checkout_pane_customer($op, $order, $form = NULL, &$form_state = NUL
             if (strcmp($pane['new_account']['pass'], $pane['new_account']['pass_confirm'])) {
               form_set_error('panes][customer][new_account][pass_confirm', t('The passwords you entered did not match. Please try again.'));
             }
-            $order->data['new_user']['pass'] = $pane['new_account']['pass'];
+            if (!empty($pane['new_account']['pass'])) {
+              require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
+              $order->data['new_user']['hash'] = user_hash_password(trim($pane['new_account']['pass']));
+            }
           }
         }
       }
@@ -467,8 +462,15 @@ function _uc_checkout_pane_data($pane_id, $key) {
 /**
  * Formats the cart contents table on the checkout page.
  *
- * @param $show_subtotal
- *   TRUE or FALSE indicating if you want a subtotal row displayed in the table.
+ * @param $variables
+ *   An associative array containing:
+ *   - show_subtotal: TRUE or FALSE indicating if you want a subtotal row
+ *     displayed in the table.
+ *   - items: An associative array of cart item information containing:
+ *     - qty: Quantity in cart.
+ *     - title: Item title.
+ *     - price: Item price.
+ *     - desc: Item description.
  *
  * @return
  *   The HTML output for the cart review table.
@@ -483,24 +485,33 @@ function theme_uc_cart_review_table($variables) {
 
   // Set up table header.
   $header = array(
-    array('data' => t('Qty'), 'class' => array('qty')),
+    array('data' => theme('uc_qty_label'), 'class' => array('qty')),
     array('data' => t('Products'), 'class' => array('products')),
     array('data' => t('Price'), 'class' => array('price')),
   );
 
   // Set up table rows.
-  foreach ($items as $item) {
-    $total = $item->price * $item->qty;
-    $subtotal += $total;
+  $display_items = entity_view('uc_order_product', $items, 'cart');
+  if (!empty($display_items['uc_order_product'])) {
+    foreach (element_children($display_items['uc_order_product']) as $key) {
+      $display_item = $display_items['uc_order_product'][$key];
+      if (count(element_children($display_item))) {
+        $total = $display_item['#total'];
+        $subtotal += $total;
+        $description = $display_item['title']['#markup'];
+        if (!empty($display_item['description']['#markup'])) {
+          $description .= $display_item['description']['#markup'];
+        }
+        $qty = $display_item['qty']['#default_value'];
+        $suffix = !empty($display_item['#suffixes']) ? implode(' ', $display_item['#suffixes']) : '';
 
-    $description = check_plain($item->title) . uc_product_get_description($item);
-
-    // Remove node from context to prevent the price from being altered.
-    $rows[] = array(
-      array('data' => t('@qty&times;', array('@qty' => $item->qty)), 'class' => array('qty')),
-      array('data' => $description, 'class' => array('products')),
-      array('data' => array('#theme' => 'uc_price', '#price' => $total), 'class' => array('price')),
-    );
+        $rows[] = array(
+          array('data' => array('#theme' => 'uc_qty', '#qty' => $qty), 'class' => array('qty')),
+          array('data' => $description, 'class' => array('products')),
+          array('data' => array('#theme' => 'uc_price', '#price' => $total, '#suffix' => $suffix), 'class' => array('price')),
+        );
+      }
+    }
   }
 
   // Add the subtotal as the final row.
@@ -525,4 +536,36 @@ function theme_uc_cart_review_table($variables) {
   }
 
   return theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('class' => array('cart-review'))));
+}
+
+/**
+ * Themes cart items on the checkout review order page.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - items: An associative array of cart item information containing:
+ *     - qty: Quantity in cart.
+ *     - title: Item title.
+ *     - price: Item price.
+ *     - desc: Item description.
+ *
+ * @return
+ *   A string of HTML for the page contents.
+ *
+ * @ingroup themeable
+ */
+function theme_uc_checkout_pane_cart_review($variables) {
+  $rows = array();
+  $items = entity_view('uc_order_product', $variables['items']);
+
+  foreach (element_children($items['uc_order_product']) as $key) {
+    $item = $items['uc_order_product'][$key];
+    $rows[] = array(
+      array('data' => $item['qty'], 'class' => array('qty')),
+      array('data' => $item['product'], 'class' => array('products')),
+      array('data' => $item['total'], 'class' => array('price')),
+    );
+  }
+
+  return theme('table', array('rows' => $rows, 'attributes' => array('class' => array('cart-review'))));;
 }

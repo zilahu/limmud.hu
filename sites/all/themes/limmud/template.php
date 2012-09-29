@@ -55,3 +55,22 @@ function limmud_preprocess_node(&$variables) {
   }
   
 }
+
+
+/**
+ *  the primary theme implementation for a view.
+ */
+/*
+function limmud_preprocess_views_view(&$variables) {
+    $view = $variables['view'];
+    
+    if ($view->name == 'eloadasok_kategoriankent') {
+        if (!empty($view->args[1])) {
+            $term = taxonomy_term_load($view->args[1]);
+            $variables['title'] = t($term->name);
+        }
+    }
+}
+
+*/
+

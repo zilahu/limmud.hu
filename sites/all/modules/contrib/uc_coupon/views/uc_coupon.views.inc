@@ -192,10 +192,10 @@ function uc_coupon_views_data() {
       'handler' => 'views_handler_sort',
     ),
     'filter' => array(
-      'handler' => 'views_handler_filter_float',
+      'handler' => 'views_handler_filter_numeric',
     ),
     'argument' => array(
-      'handler' => 'views_handler_argument_float',
+      'handler' => 'views_handler_argument_numeric',
     ),
   );
 
@@ -211,10 +211,10 @@ function uc_coupon_views_data() {
       'handler' => 'views_handler_sort',
     ),
     'filter' => array(
-      'handler' => 'views_handler_filter_float',
+      'handler' => 'views_handler_filter_numeric',
     ),
     'argument' => array(
-      'handler' => 'views_handler_argument_float',
+      'handler' => 'views_handler_argument_numeric',
     ),
   );
 
@@ -264,6 +264,10 @@ function uc_coupon_views_data() {
       'handler' => 'uc_coupon_handler_filter_product_type',
       'label' => 'Is a product type',
     ),
+    'argument' => array(
+      'handler' => 'uc_coupon_handler_argument_product_type',
+      'label' => 'Is a product type',
+    ),
   );
 
   $data['uc_coupons']['bulk_number'] = array(
@@ -272,6 +276,139 @@ function uc_coupon_views_data() {
     'field' => array(
       'handler' => 'uc_coupon_handler_field_bulk_number',
       'field' => 'data',
+    ),
+  );
+
+  $data['uc_coupons']['all_orders_count'] = array(
+     'title' => t('All orders count'),
+    'help' => t('The number of orders to which this coupon was applied.'),
+    'field' => array(
+      'handler' => 'uc_coupon_handler_field_all_orders_count',
+    ),
+  );
+
+  $data['uc_coupons']['table']['join']['uc_orders'] = array(
+    'left_table' => 'uc_coupons_orders',
+    'left_field' => 'oid',
+    'field' => 'order_id',
+  );
+
+  $data['uc_coupons']['all_orders_total'] = array(
+    'title' => t('All orders total'),
+    'help' => t('The total bottom-line for all orders to which this coupon was applied.'),
+    'field' => array(
+      'handler' => 'uc_coupon_handler_field_all_orders_total',
+      'float' => TRUE,
+    ),
+  );
+
+  $data['uc_coupons']['all_orders_value'] = array(
+    'title' => t('All orders total value'),
+    'help' => t('The total value of this coupon for all orders to which it was applied.'),
+    'field' => array(
+      'handler' => 'uc_coupon_handler_field_all_orders_value',
+      'float' => TRUE,
+    ),
+  );
+
+  $data['uc_coupons']['all_orders_gross'] = array(
+    'title' => t('All orders gross total'),
+    'help' => t('The pre-discount total for all orders to which this coupon was applied.'),
+    'field' => array(
+      'handler' => 'uc_coupon_handler_field_all_orders_gross',
+      'float' => TRUE,
+    ),
+  );
+
+  //
+  // Table: uc_coupons_orders
+  //
+  $data['uc_coupons_orders']['table']['group'] = t('Coupon order');
+  $data['uc_coupons_orders']['table']['join']['uc_coupons'] = array(
+    'left_field' => 'cid',
+    'field' => 'cid',
+  );
+
+  // Join to the uc_orders table.
+  $data['uc_coupons_orders']['table']['join']['uc_orders'] = array(
+    'left_field' => 'order_id',
+    'field' => 'oid',
+  );
+
+  $data['uc_orders']['table']['join']['uc_coupons'] = array(
+    'left_table' => 'uc_coupons_orders',
+    'left_field' => 'oid',
+    'field' => 'order_id',
+  );
+
+  $data['uc_coupons_orders']['code'] = array(
+    'title' => t('Code'),
+    'help' => t('The coupon code used for this order'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
+    ),
+  );
+
+  $data['uc_coupons_orders']['value'] = array(
+    'title' => t('Value'),
+    'help' => t('The value of the coupon used for this order'),
+    'field' => array(
+      'handler' => 'uc_order_handler_field_money_amount',
+      'click sortable' => TRUE,
+      'float' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
+    ),
+  );
+
+  $data['uc_coupons_orders']['gross'] = array(
+    'title' => t('Gross'),
+    'help' => t('The pre-discount bottom-line for this order'),
+    'field' => array(
+      'handler' => 'uc_coupon_handler_field_gross',
+      'float' => TRUE,
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'uc_coupon_handler_filter_gross'
+    ),
+  );
+
+  $data['uc_coupons_orders']['oid'] = array(
+    'title' => t('Order ID'),
+    'help' => t('The order ID of this coupon order'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
     ),
   );
 
@@ -302,8 +439,29 @@ function uc_coupon_views_handlers() {
       'uc_coupon_handler_filter_product_type' => array(
         'parent' => 'views_handler_filter_in_operator',
       ),
+      'uc_coupon_handler_argument_product_type' => array(
+        'parent' => 'views_handler_argument',
+      ),
       'uc_coupon_handler_field_product_type' => array(
         'parent' => 'views_handler_field_prerender_list',
+      ),
+      'uc_coupon_handler_field_all_orders_count' => array(
+        'parent' => 'views_handler_field_numeric',
+      ),
+      'uc_coupon_handler_field_all_orders_total' => array(
+          'parent' => 'uc_order_handler_field_money_amount',
+      ),
+      'uc_coupon_handler_field_all_orders_value' => array(
+          'parent' => 'uc_coupon_handler_field_all_orders_total',
+      ),
+      'uc_coupon_handler_field_all_orders_gross' => array(
+        'parent' => 'uc_coupon_handler_field_all_orders_total',
+      ),
+      'uc_coupon_handler_field_gross' => array(
+        'parent' => 'uc_order_handler_field_money_amount',
+      ),
+      'uc_coupon_handler_filter_gross' => array(
+          'parent' => 'views_handler_filter_numeric',
       ),
     ),
   );

@@ -31,26 +31,26 @@ function uc_google_checkout_settings($form, &$form_state) {
 
   $form['authentication']['sandbox'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Test Environment settings'),
+    '#title' => t('Test environment settings'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
   );
   $form['authentication']['sandbox']['uc_google_checkout_mode'] = array(
     '#type' => 'radios',
-    '#title' => t('Test Mode'),
+    '#title' => t('Test mode'),
     '#default_value' => variable_get('uc_google_checkout_mode', 'checkout'),
     '#options' => array('sandbox' => t('On'), 'checkout' => t('Off')),
   );
   $form['authentication']['sandbox']['uc_google_checkout_test_merchant_id'] = array(
     '#type' => 'textfield',
-    '#title' => t('Test Merchant ID'),
-    '#description' => t('Only needed for test mode. Click <a href="http://code.google.com/apis/checkout/developer/index.html#integration_overview" target="_blank">here</a> for more info.'),
+    '#title' => t('Test merchant ID'),
+    '#description' => t('Only needed for test mode. Click <a href="@url" target="_blank">here</a> for more info.', array('@url' => 'http://code.google.com/apis/checkout/developer/index.html#integration_overview')),
     '#default_value' => variable_get('uc_google_checkout_test_merchant_id', ''),
     '#required' => FALSE,
   );
   $form['authentication']['sandbox']['uc_google_checkout_test_merchant_key'] = array(
     '#type' => 'textfield',
-    '#title' => t('Test Merchant Key'),
+    '#title' => t('Test merchant key'),
     '#default_value' => variable_get('uc_google_checkout_test_merchant_key', ''),
     '#required' => FALSE,
   );
@@ -91,12 +91,6 @@ function uc_google_checkout_settings($form, &$form_state) {
     '#title' => t('Button size'),
     '#options' => array('large' => t('Large'), 'medium' => t('Medium'), 'small' => t('Small')),
     '#default_value' => variable_get('uc_google_checkout_button_size', 'large'),
-  );
-  $form['button']['uc_google_checkout_button_align'] = array(
-    '#type' => 'radios',
-    '#title' => t('Button alignment'),
-    '#default_value' => variable_get('uc_google_checkout_button_align', 'right'),
-    '#options' => array('right' => t('Right'), 'left' => t('Left')),
   );
 
   return system_settings_form($form);
@@ -162,7 +156,7 @@ function uc_google_checkout_taxes_settings($form, &$form_state) {
     '#type' => 'checkbox',
     '#disabled' => TRUE,
   );
-  $form['taxes']['new']['zone'] = uc_zone_select('');
+  $form['taxes']['new']['zone'] = uc_zone_select('', NULL, 840);
   $form['taxes']['new']['rate'] = array(
     '#type' => 'textfield',
     '#default_value' => '',
@@ -248,20 +242,10 @@ function uc_google_checkout_taxes_settings_submit($form, &$form_state) {
 }
 
 /**
- * Menu callback function that presents payment terminal form to adminstrator.
+ * Menu callback function that presents payment terminal form to administrator.
  */
 function uc_google_checkout_terminal($order) {
   $order_id = $order->order_id;
-
-  if ($order === FALSE) {
-    drupal_set_message(t('Order @order_id does not exist.', array('@order_id' => $order_id)));
-    drupal_goto('admin/store/orders');
-  }
-
-  $build['return'] = array(
-    '#markup' => l(t('Return to order view screen.'), 'admin/store/orders/' . $order_id),
-  );
-
   $gc_balance = $order->gc_total;
   $payments = uc_payment_load_payments($order_id);
   if (is_array($payments)) {
@@ -271,42 +255,27 @@ function uc_google_checkout_terminal($order) {
       }
     }
   }
-  $balance = uc_payment_balance($order);
-
-  $build['instructions'] = array('#markup' => '<p>' . t('Use this terminal to process credit card payments:') . '</p>');
-
-  $build['details'] = array(
-    '#prefix' => '<table style="width: auto;"><tbody style="border-top: 0px;">',
-    '#suffix' => '</tbody></table>',
-  );
 
   $build['details']['order_total'] = array(
-    '#prefix' => '<tr>',
-    '#suffix' => '</tr>',
+    '#type' => 'item',
+    '#title' => t('Order total:'),
+    '#markup' => theme('uc_price', array('price' => $order->order_total)),
   );
-  $build['details']['order_total']['label'] = array('#markup' => '<strong>' . t('Order total:') . '</strong>');
-  $build['details']['order_total']['value'] = array('#theme' => 'uc_price', '#price' => $order->order_total);
-
   $build['details']['balance'] = array(
-    '#prefix' => '<tr>',
-    '#suffix' => '</tr>',
+    '#type' => 'item',
+    '#title' => t('Balance:'),
+    '#markup' => theme('uc_price', array('price' => uc_payment_balance($order))),
   );
-  $build['details']['balance']['label'] = array('#markup' => '<strong>' . t('Balance:') . '</strong>');
-  $build['details']['balance']['value'] = array('#theme' => 'uc_price', '#price' => $balance);
-
   $build['details']['gco_total'] = array(
-    '#prefix' => '<tr>',
-    '#suffix' => '</tr>',
+    '#type' => 'item',
+    '#title' => t('Google Checkout total:'),
+    '#markup' => theme('uc_price', array('price' => $order->gc_total)),
   );
-  $build['details']['gco_total']['label'] = array('#markup' => '<strong>' . t('Google Checkout total:') . '</strong>');
-  $build['details']['gco_total']['value'] = array('#theme' => 'uc_price', '#price' => $order->gc_total);
-
   $build['details']['gco_balance'] = array(
-    '#prefix' => '<tr>',
-    '#suffix' => '</tr>',
+    '#type' => 'item',
+    '#title' => t('Google Checkout balance:'),
+    '#markup' => theme('uc_price', array('price' => $gc_balance)),
   );
-  $build['details']['gco_balance']['label'] = array('#markup' => '<strong>' . t('Google Checkout balance:') . '</strong>');
-  $build['details']['gco_balance']['value'] = array('#theme' => 'uc_price', '#price' => $gc_balance);
 
   if (in_array($order->financial_state, array('REVIEWING', 'CHARGEABLE', 'CHARGED'))) {
     $build['form'] = drupal_get_form('uc_google_checkout_terminal_form', $order, $gc_balance);
@@ -352,13 +321,9 @@ function uc_google_checkout_terminal_form($form, &$form_state, $order, $amount =
   }
 
   $form['amount'] = array(
-    '#type' => 'textfield',
+    '#type' => 'uc_price',
     '#title' => t('Amount'),
-    '#default_value' => uc_currency_format($amount, FALSE, FALSE, '.'),
-    '#size' => 10,
-    '#weight' => 0,
-    '#field_prefix' => variable_get('uc_sign_after_amount', FALSE) ? '' : variable_get('uc_currency_sign', '$'),
-    '#field_suffix' => variable_get('uc_sign_after_amount', FALSE) ? variable_get('uc_currency_sign', '$') : '',
+    '#default_value' => $amount,
   );
   $form['gc_balance'] = array(
     '#type' => 'value',
@@ -389,9 +354,6 @@ function uc_google_checkout_terminal_form($form, &$form_state, $order, $amount =
  * @see uc_google_checkout_terminal_form_submit()
  */
 function uc_google_checkout_terminal_form_validate($form, &$form_state) {
-  if (!is_numeric($form_state['values']['amount']) || $form_state['values']['amount'] == 0) {
-    form_set_error('amount', t('You must enter a number for the amount.'));
-  }
   if ($form_state['values']['action'] == 'charge' && $form_state['values']['amount'] > $form_state['values']['gc_balance']) {
     form_set_error('amount', t('Google does not allow charges greater than the balance.'));
   }

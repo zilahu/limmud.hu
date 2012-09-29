@@ -30,6 +30,13 @@ function uc_shipping_order_packages($order) {
     $row[] = isset($package->sid) ? l($package->sid, 'admin/store/orders/' . $order->order_id . '/shipments/' . $package->sid . '/view') : '';
     $row[] = isset($package->tracking_number) ? check_plain($package->tracking_number) : '';
 
+    if ($package->label_image && $image = file_load($package->label_image)) {
+      $package->label_image = $image;
+    }
+    else {
+      unset($package->label_image);
+    }
+
     if ($package->sid && $package->label_image) {
       $method = db_query("SELECT shipping_method FROM {uc_shipments} WHERE sid = :sid", array(':sid' => $package->sid))->fetchField();
     }
@@ -39,8 +46,8 @@ function uc_shipping_order_packages($order) {
         theme('image_style', array(
           'style_name' => 'uc_thumbnail',
           'path' => $package->label_image->uri,
-          'alt' => t('Shipping Label'),
-          'title' => t('Shipping Label'),
+          'alt' => t('Shipping label'),
+          'title' => t('Shipping label'),
         )),
         'admin/store/orders/' . $order->order_id . '/shipments/labels/' . $method . '/' . $package->label_image->uri,
         array('html' => TRUE)
@@ -65,7 +72,8 @@ function uc_shipping_order_packages($order) {
   }
 
   if (empty($rows)) {
-    $rows[][] = array('data' => t("This order's products have not been organized into packages."), 'colspan' => 11);
+    drupal_set_message(t("This order's products have not been organized into packages."));
+    drupal_goto('admin/store/orders/' . $order->order_id . '/packages/new');
   }
 
   $build['packages'] = array(
@@ -73,13 +81,6 @@ function uc_shipping_order_packages($order) {
     '#header' => $header,
     '#rows' => $rows,
   );
-
-  $result = db_query("SELECT op.order_product_id, CASE WHEN COUNT(pp.qty) = 0 THEN 0 ELSE SUM(op.qty) / COUNT(pp.qty) END AS total, SUM(pp.qty) AS packaged FROM {uc_order_products} AS op LEFT JOIN {uc_packaged_products} AS pp ON op.order_product_id = pp.order_product_id WHERE op.order_id = :id AND op.data LIKE :data GROUP BY op.order_product_id HAVING SUM(pp.qty) IS NULL OR CASE WHEN COUNT(pp.qty) = 0 THEN 0 ELSE SUM(op.qty) / COUNT(pp.qty) END > SUM(pp.qty)", array(':id' => $order->order_id, ':data' => '%s:9:"shippable";s:1:"1";%'));
-  if ($result->fetchObject()) {
-    $build['add_more'] = array(
-      '#markup' => l(t('Create packages.'), 'admin/store/orders/' . $order->order_id . '/packages/new'),
-    );
-  }
 
   return $build;
 }
@@ -117,7 +118,7 @@ function uc_shipping_new_package($form, &$form_state, $order) {
                         ucwords(str_replace('_', ' ', $shipping_type)),
       '#collapsible' => TRUE,
       '#collapsed'   => FALSE,
-      '#weight'      => $shipping_type_weights[$shipping_type],
+      '#weight'      => isset($shipping_type_weights[$shipping_type]) ? $shipping_type_weights[$shipping_type] : 0,
     );
 
     foreach ($products as $product) {
@@ -140,6 +141,8 @@ function uc_shipping_new_package($form, &$form_state, $order) {
         );
         $product_row['qty'] = array(
           '#type'          => 'select',
+          '#title'         => theme('uc_qty_label'),
+          '#title_display' => 'invisible',
           '#options'       => drupal_map_assoc(range(1, $unboxed_qty)),
           '#default_value' => $unboxed_qty,
         );
@@ -148,6 +151,8 @@ function uc_shipping_new_package($form, &$form_state, $order) {
         $options[0] = t('Sep.');
         $product_row['package'] = array(
           '#type' => 'select',
+          '#title' => t('Package'),
+          '#title_display' => 'invisible',
           '#options' => $options,
           '#default_value' => 0,
         );
@@ -193,7 +198,7 @@ function theme_uc_shipping_new_package_fieldset($variables) {
   drupal_add_js('misc/tableselect.js');
 
   $output = '';
-  $header = array(array('class' => array('select-all')), t('SKU'), t('Title'), t('Qty'), t('Package'));
+  $header = array(array('class' => array('select-all')), t('SKU'), t('Title'), theme('uc_qty_label'), t('Package'));
 
   $rows = array();
   foreach (element_children($fieldset) as $op_id) {
@@ -206,7 +211,11 @@ function theme_uc_shipping_new_package_fieldset($variables) {
     $rows[] = $row;
   }
 
-  $output .= theme('table', array('header' => $header, 'rows' => $rows));
+  $output .= theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'empty' => t('There are no products available for this type of package.'),
+  ));
   $output .= drupal_render_children($fieldset);
 
   return $output;
@@ -370,7 +379,7 @@ function theme_uc_shipping_edit_package_fieldset($variables) {
   drupal_add_js('misc/tableselect.js');
 
   $output = '';
-  $header = array(array('class' => array('select-all')), t('SKU'), t('Title'), t('Qty'));
+  $header = array(array('class' => array('select-all')), t('SKU'), t('Title'), theme('uc_qty_label'));
   $rows = array();
   foreach (element_children($fieldset) as $op_id) {
     $row = array();
@@ -511,7 +520,14 @@ function uc_shipping_order_shipments($order) {
   }
 
   if (empty($rows)) {
-    $rows[] = array(array('data' => t('No shipments have been made for this order.'), 'colspan' => 12));
+    if (!db_query("SELECT COUNT(*) FROM {uc_packages} WHERE order_id = :id", array(':id' => $order->order_id))->fetchField()) {
+      drupal_set_message(t("This order's products have not been organized into packages."));
+      drupal_goto('admin/store/orders/' . $order->order_id . '/packages/new');
+    }
+    else {
+      drupal_set_message(t('No shipments have been made for this order.'));
+      drupal_goto('admin/store/orders/' . $order->order_id . '/shipments/new');
+    }
   }
 
   $build['shipments'] = array(
@@ -519,21 +535,6 @@ function uc_shipping_order_shipments($order) {
     '#header' => $header,
     '#rows' => $rows,
   );
-
-  $packages = db_query("SELECT COUNT(*) FROM {uc_packages} WHERE order_id = :id AND sid IS NULL", array(':id' => $order->order_id))->fetchField();
-  if ($packages) {
-    $build['add_more'] = array(
-      '#markup' => l(t('Make a new shipment'), 'admin/store/orders/' . $order->order_id . '/shipments/new'),
-    );
-  }
-  else {
-    $result = db_query("SELECT op.order_product_id, CASE WHEN COUNT(pp.qty) = 0 THEN 0 ELSE SUM(op.qty) / COUNT(pp.qty) END AS total, SUM(pp.qty) AS packaged FROM {uc_order_products} AS op LEFT JOIN {uc_packaged_products} AS pp ON op.order_product_id = pp.order_product_id WHERE op.order_id = :id AND op.data LIKE :data GROUP BY op.order_product_id HAVING SUM(pp.qty) IS NULL OR CASE WHEN COUNT(pp.qty) = 0 THEN 0 ELSE SUM(op.qty) / COUNT(pp.qty) END > SUM(pp.qty)", array(':id' => $order->order_id, ':data' => '%s:9:"shippable";s:1:"1";%'));
-    if ($result->fetchObject()) {
-      $build['add_more'] = array(
-        '#markup' => l(t('Put products into packages to make shipments.'), 'admin/store/orders/' . $order->order_id . '/packages/new'),
-      );
-    }
-  }
 
   return $build;
 }
@@ -552,13 +553,15 @@ function uc_shipping_new_shipment($form, &$form_state, $order) {
   $form['order_id'] = array('#type' => 'hidden', '#value' => $order->order_id);
 
   $packages_by_type = array();
+  $units = variable_get('uc_weight_unit', 'lb');
   $result = db_query("SELECT * FROM {uc_packages} WHERE order_id = :id AND sid IS NULL", array(':id' => $order->order_id));
   foreach ($result as $package) {
     $products = array();
     $weight = 0;
-    $result2 = db_query("SELECT pp.order_product_id, pp.qty, pp.qty * op.weight AS weight, op.title, op.model FROM {uc_packaged_products} AS pp LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
+    $result2 = db_query("SELECT pp.order_product_id, pp.qty, pp.qty * op.weight AS weight, op.weight_units, op.title, op.model FROM {uc_packaged_products} AS pp LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
     foreach ($result2 as $product) {
-      $weight += $product->weight;
+      $units_conversion = uc_weight_conversion($product->weight_units, $units);
+      $weight += $product->weight * $units_conversion;
       $products[$product->order_product_id] = $product;
     }
     $package->weight = $weight;
@@ -591,7 +594,7 @@ function uc_shipping_new_shipment($form, &$form_state, $order) {
         $product_list[] = $product->qty . ' x ' . check_plain($product->model);
       }
       $package_row['products'] = array('#markup' => '<ul><li>' . implode('</li><li>', $product_list) . '</li></ul>');
-      $package_row['weight'] = array('#markup' => $package->weight);
+      $package_row['weight'] = array('#markup' => uc_weight_format($package->weight, $units));
       $form['shipping_types'][$shipping_type]['packages'][$package->package_id] = $package_row;
     }
 
@@ -707,7 +710,7 @@ function uc_shipping_shipment_view($order, $shipment) {
   }
 
   if ($shipment->tracking_number) {
-    $rows[] = array(t('Tracking Number:'), check_plain($shipment->tracking_number));
+    $rows[] = array(t('Tracking number:'), check_plain($shipment->tracking_number));
   }
 
   $methods = module_invoke_all('uc_shipping_method');
@@ -741,7 +744,6 @@ function uc_shipping_shipment_view($order, $shipment) {
  *
  * @see uc_shipping_shipment_edit_validate()
  * @see uc_shipping_shipment_edit_submit()
- * @see theme_uc_shipping_package_dimensions()
  * @ingroup forms
  */
 function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
@@ -808,23 +810,15 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
       $pkg_form['pkg_type']['#description'] = '';
     }
     $pkg_form['declared_value'] = array(
-      '#type'          => 'textfield',
+      '#type'          => 'uc_price',
       '#title'         => t('Declared value'),
-      '#field_prefix'  => variable_get('uc_sign_after_amount', FALSE) ?
-                          '' :
-                          variable_get('uc_currency_sign', '$'),
-      '#field_suffix'  => variable_get('uc_sign_after_amount', FALSE) ?
-                          variable_get('uc_currency_sign', '$') :
-                          '',
-      '#default_value' => isset($package->value) ?
-                          $package->value :
-                          $declared_value,
+      '#default_value' => isset($package->value) ? $package->value : $declared_value,
     );
     $pkg_form['weight'] = array(
       '#type'        => 'container',
+      '#attributes'  => array('class' => array('uc-inline-form', 'clearfix')),
       '#description' => t('Weight of the package. Default value is sum of product weights in the package.'),
       '#weight'      => 15,
-      '#theme'       => 'uc_product_inline_form',
     );
     $pkg_form['weight']['weight'] = array(
       '#type'          => 'textfield',
@@ -848,11 +842,10 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
     );
     $pkg_form['dimensions'] = array(
       '#type'        => 'container',
+      '#attributes'  => array('class' => array('uc-inline-form', 'clearfix')),
       '#title'       => t('Dimensions'),
       '#description' => t('Physical dimensions of the packaged product.'),
       '#weight'      => 20,
-      //'#theme'       => 'uc_shipping_package_dimensions',
-      '#theme'       => 'uc_product_inline_form',
     );
     $pkg_form['dimensions']['length'] = array(
       '#type'          => 'textfield',
@@ -902,19 +895,29 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
     '#collapsible' => TRUE,
   );
 
-  // Determine shipping option chosen by the customer
-  $method  = $order->quote['method'];
-  $methods = module_invoke_all('uc_shipping_method');
-  if (isset($methods[$method])) {
-    $services = $methods[$method]['quote']['accessorials'];
-    $method   = $services[$order->quote['accessorials']];
+  // Determine shipping option chosen by the customer.
+  $message = '';
+  if (isset($order->quote['method'])) {
+    // Order has a quote attached.
+    $method  = $order->quote['method'];
+    $methods = module_invoke_all('uc_shipping_method');
+    if (isset($methods[$method])) {
+      // Quote is from a currently-active shipping method.
+      $services = $methods[$method]['quote']['accessorials'];
+      $method   = $services[$order->quote['accessorials']];
+    }
+    $message = t('Customer selected "@method" as the shipping method and paid @rate', array('@method' => $method, '@rate' => uc_currency_format($order->quote['rate'])));
+  }
+  else {
+    // No quotes for this order.
+    $message = t('There are no shipping quotes attached to this order. Customer was not charged for shipping.');
   }
 
-  // Inform user of customer's shipping choice
+  // Inform administrator of customer's shipping choice.
   $form['shipment']['shipping_choice'] = array(
     '#type'   => 'markup',
     '#prefix' => '<div>',
-    '#markup' => t('Customer selected "@method" as the shipping method and paid @rate', array('@method' => $method, '@rate' => uc_currency_format($order->quote['rate']))),
+    '#markup' => $message,
     '#suffix' => '</div>',
   );
 
@@ -975,15 +978,9 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
     ),
   );
   $form['shipment']['cost'] = array(
-    '#type'          => 'textfield',
+    '#type'          => 'uc_price',
     '#title'         => t('Shipping cost'),
     '#default_value' => isset($shipment->cost) ? $shipment->cost : 0,
-    '#field_prefix'  => variable_get('uc_sign_after_amount', FALSE) ?
-                        '' :
-                        variable_get('uc_currency_sign', '$'),
-    '#field_suffix'  => variable_get('uc_sign_after_amount', FALSE) ?
-                        variable_get('uc_currency_sign', '$') :
-                        '',
   );
 
   $form['actions'] = array(
@@ -1008,7 +1005,7 @@ function uc_shipping_shipment_edit_validate($form, &$form_state) {
   foreach ($form_state['values']['packages'] as $key => $package) {
     foreach (array('length', 'width', 'height') as $property) {
       if (!empty($package['dimensions'][$property]) && (!is_numeric($package['dimensions'][$property]) || $package['dimensions'][$property] < 0)) {
-        form_set_error('packages][' . $key . '][dimensions][' . $property, t('@property must be a positive number. No commas and only one decimal point.', array('@property' => ucfirst($property))));
+        form_set_error('packages][' . $key . '][dimensions][' . $property, t('@property must be a positive number. No commas and only one decimal point.', array('@property' => drupal_ucfirst($property))));
       }
     }
   }

@@ -97,6 +97,9 @@ function uc_coupon_reports($start = NULL, $end = NULL, $statuses = NULL) {
     $row_header = array(t('Order #'), t('Purchase date'), t('Total'), t('Coupon value'));
     $last_cid = $orders_total = $coupons_total = 0;
     $data = '';
+    $num_uses = 0;
+    $coupon_sale_amount = 0;
+    $coupon_amount = 0;
     foreach ($result as $row) {
       // Display the table of coupons if this is the next set of coupons
       if ($row->cid != $last_cid) {
@@ -113,7 +116,7 @@ function uc_coupon_reports($start = NULL, $end = NULL, $statuses = NULL) {
       if ($row->cid != $last_cid || $last_cid = 0) {
         $data .= '<div class="totals">' . t('Coupon code: !link', array('!link' => l($row->code, 'admin/store/coupons/' . $row->cid . '/edit'))) . '</div>';
       }
-      $td[] = array(l('#' . $row->oid, 'admin/store/orders/' . $row->oid), format_date($row->created, 'custom', variable_get('uc_date_format_default', 'm/d/Y')), uc_currency_format($row->order_total), uc_currency_format($row->value));
+      $td[] = array(l('#' . $row->oid, 'admin/store/orders/' . $row->oid), format_date($row->created, 'custom', variable_get('date_format_uc_store', 'm/d/Y')), uc_currency_format($row->order_total), uc_currency_format($row->value));
       $num_uses++;
       $coupon_amount += $row->value;
       $coupon_sale_amount += $row->order_total;

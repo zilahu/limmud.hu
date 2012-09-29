@@ -48,7 +48,8 @@ function uc_cybersource_menu() {
  */
 function uc_cybersource_page_alter(&$page) {
   $block = block_load('system', 'main');
-  // Add to the review page hidden form fields with data to post to CyberSource HOP.
+  // Add to the review page hidden form fields with data to post to
+  // CyberSource HOP.
   if (isset($page[$block->region]['system_main']['#theme']) && $page[$block->region]['system_main']['#theme'] == 'uc_cart_checkout_review' && ($order_id = intval($_SESSION['cart_order'])) > 0) {
     $order = uc_order_load($order_id);
 
@@ -74,7 +75,7 @@ function uc_cybersource_payment_gateway_settings_submit($form, &$form_state) {
   // If CC encryption has been configured properly.
   if ($key = uc_credit_encryption_key()) {
     // Setup our encryption object.
-    $crypt = new uc_encryption_class;
+    $crypt = new UbercartEncryption();
 
     // Encrypt the Merchant ID and Transaction key.
     if (!empty($form_state['values']['uc_cybersource_soap_merchant_id'])) {
@@ -138,7 +139,7 @@ function uc_cybersource_hop_post() {
     return;
   }
 
-  // Assign posted variables to local variables
+  // Assign posted variables to local variables.
   $decision = check_plain($_POST['decision']);
   $reason_code = check_plain($_POST['reasonCode']);
   $reason = _parse_cs_reason_code($reason_code);
@@ -154,8 +155,8 @@ function uc_cybersource_hop_post() {
   switch ($decision) {
     case 'ACCEPT':
       watchdog('uc_cybersource_hop', 'CyberSource verified successful payment.');
-      $duplicate = db_query("SELECT COUNT(*) FROM {uc_payment_cybersource_hop_post} WHERE order_id = :order_id AND decision = :decision", array(':order_id' => $order_id, ':decision' => 'ACCEPT'))->fetchField();
-        if ($duplicate > 0) {
+      $duplicate = (bool) db_query_range('SELECT 1 FROM {uc_payment_cybersource_hop_post} WHERE order_id = :order_id AND decision = :decision', 0, 1, array(':order_id' => $order_id, ':decision' => 'ACCEPT'))->fetchField();
+      if ($duplicate) {
         watchdog('uc_cybersource_hop', 'CS HOP transaction for order @order-id has been processed before.', array('@order_id' => $order_id), WATCHDOG_NOTICE);
         return;
       }
@@ -197,7 +198,8 @@ function uc_cybersource_hop_post() {
 function uc_cybersource_hop_include() {
   $hop_paths[0] = 'sites/all/libraries/uc_cybersource/HOP.php';
   $hop_paths[1] = drupal_get_path('module', 'uc_cybersource') . '/HOP.php';
-  // Loop through possible paths, include and return TRUE when HOP.php is located.
+  // Loop through possible paths, include and return TRUE when HOP.php is
+  // located.
   foreach ($hop_paths as $key => $path) {
     if (file_exists($path)) {
       require_once($path);
@@ -357,7 +359,7 @@ function uc_cybersource_payment_method() {
 /**
  * Payment method callback.
  */
-function uc_payment_method_cybersource_hop($op, $arg1) {
+function uc_payment_method_cybersource_hop($op, &$order) {
   if ($op == 'settings') {
     $form['uc_cybersource_hop_server'] = array(
       '#type' => 'select',
@@ -402,7 +404,7 @@ function uc_cybersource_hop_complete($order) {
     drupal_goto('cart');
   }
   // This lets us know it's a legitimate access of the complete page.
-  $_SESSION['do_complete'] = TRUE;
+  $_SESSION['uc_checkout'][$_SESSION['cart_order']]['do_complete'] = TRUE;
   drupal_goto('cart/checkout/complete');
 }
 
@@ -432,7 +434,7 @@ function uc_cybersource_hop_form($form, $form_state, $order) {
     'billTo_email' => $order->primary_email,
     'billTo_phoneNumber' => $order->billing_phone,
   );
-  if (uc_cart_is_shippable()) {
+  if (uc_order_is_shippable($order)) {
     $data += array(
       'shipTo_firstName' => $order->delivery_first_name,
       'shipTo_lastName' => $order->delivery_last_name,
@@ -486,7 +488,7 @@ function uc_cybersource_hop_form($form, $form_state, $order) {
   $receipt_url = url('cybersource/hop-complete/' . $order->order_id, array('absolute' => TRUE));
   $data['orderPage_receiptResponseURL'] = $receipt_url;
   $data['orderPage_buyButtonText'] = variable_get('uc_cybersource_cs_hop_button_text', t('Process payment'));
-  $comments = t('Order @order-id at @store-name', array('@order-id' => $order->order_id, '@store-name' => variable_get('uc_store_name', t('Our store'))));
+  $comments = t('Order @order-id at @store-name', array('@order-id' => $order->order_id, '@store-name' => uc_store_name()));
   $alter_data['order'] = $order;
   $alter_data['comments'] = $comments;
   $alter_data['merchant_fields'] = array();
@@ -730,7 +732,7 @@ function _uc_cybersource_soap_charge($order, $amount, $data, $cc_type, $country)
     $url = 'https://ics2ws.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.38.wsdl';
   }
 
-  // Variable currency... not used atm.
+  // Variable currency... not used at the moment.
   $currency = variable_get('uc_cybersource_currency', 'usd');
 
   $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
@@ -821,7 +823,7 @@ function _uc_cybersource_soap_charge($order, $amount, $data, $cc_type, $country)
     $billTo->customerID = $order->uid;
     $request->billTo = $billTo;
 
-    // Add the credit card details if needed
+    // Add the credit card details if needed.
     if (in_array($data['txn_type'], array(UC_CREDIT_AUTH_ONLY, UC_CREDIT_AUTH_CAPTURE))) {
       $card = new stdClass();
       $card->accountNumber = $order->payment_details['cc_number'];
@@ -865,9 +867,14 @@ function _uc_cybersource_soap_charge($order, $amount, $data, $cc_type, $country)
       }
 
       // Add the line items to the item array.
+      $discount_amount = 0;
       foreach ((array) $order->line_items as $line_item) {
+        // Handle negative line items.
+        if ($line_item['amount'] < 0) {
+          $discount_amount += -$line_item['amount'];
+        }
         // Skip subtotal line items.
-        if (strpos($line_item['type'], 'subtotal') === FALSE) {
+        elseif (strpos($line_item['type'], 'subtotal') === FALSE) {
           $obj = $request->item[] = new stdClass();
 
           $obj->productName = $line_item['title'];
@@ -881,6 +888,11 @@ function _uc_cybersource_soap_charge($order, $amount, $data, $cc_type, $country)
       }
     }
 
+    // Add the total order discount into the request.
+    if ($discount_amount != 0) {
+      $request->purchaseTotals->discountAmount = $discount_amount;
+    }
+
     // Add business rules.
     $business = new stdClass();
     $business->ignoreAVSResult = variable_get('uc_cybersource_avs', 'true') == 'true' ? 'false' : 'true';
@@ -892,7 +904,7 @@ function _uc_cybersource_soap_charge($order, $amount, $data, $cc_type, $country)
   catch (SoapFault $exception) {
     // Log and display errors if Ubercart is unable to connect via SOAP.
     watchdog('uc_cybersource', 'Unable to connect to CyberSource via SOAP.', array(), WATCHDOG_ERROR);
-    drupal_set_message(t('We apologize for the delay, but we are unable to process your credit card at this time. Please <a href="!url">contact sales</a> to complete your order.', array('!url' => url('contact'))), 'error');
+    drupal_set_message(t('We apologize for the delay, but we are unable to process your credit card at this time. Please <a href="@url">contact sales</a> to complete your order.', array('@url' => url('contact'))), 'error');
   }
 
   // Process a reply from CyberSource.
@@ -1012,8 +1024,8 @@ function uc_cybersource_tax_test($order) {
  *   An order object with address and product information.
  *
  * @return
- *   An array of associative arrays representing tax information with the keys
- *   'id', 'name', and 'amount'.
+ *   An array of tax line item objects with the fields 'id', 'name', and
+ *   'amount', keyed by id.
  */
 function uc_cybersource_uc_calculate_tax($order) {
   // Kick out if the tax service is not enabled.
@@ -1037,7 +1049,7 @@ function uc_cybersource_uc_calculate_tax($order) {
     $url = 'https://ics2ws.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.38.wsdl';
   }
 
-  // Variable currency... not used atm.
+  // Variable currency... not used at the moment.
   $currency = variable_get('uc_cybersource_currency', 'usd');
 
   $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
@@ -1152,7 +1164,7 @@ function uc_cybersource_uc_calculate_tax($order) {
   catch (SoapFault $exception) {
     // Log and display errors if Ubercart is unable to connect via SOAP.
     watchdog('uc_cybersource', 'Unable to connect to CyberSource via SOAP.', array(), WATCHDOG_ERROR);
-    drupal_set_message(t('We apologize for the delay, but we are unable to process your credit card at this time. Please <a href="!url">contact sales</a> to complete your order.', array('!url' => url('contact'))), 'error');
+    drupal_set_message(t('We apologize for the delay, but we are unable to process your credit card at this time. Please <a href="@url">contact sales</a> to complete your order.', array('@url' => url('contact'))), 'error');
   }
 
   // Process a reply from CyberSource.
@@ -1161,7 +1173,7 @@ function uc_cybersource_uc_calculate_tax($order) {
     if ($reply->reasonCode == '100') {
       // Add a city tax if applicable.
       if (floatval($reply->taxReply->totalCityTaxAmount) > 0) {
-        $result[] = array(
+        $result['city'] = (object)array(
           'id' => 'city',
           'name' => t('@city city tax', array('@city' => floatval($reply->taxReply->city))),
           'amount' => floatval($reply->taxReply->totalCityTaxAmount),
@@ -1170,7 +1182,7 @@ function uc_cybersource_uc_calculate_tax($order) {
 
       // Add a county tax if applicable.
       if (floatval($reply->taxReply->totalCountyTaxAmount) > 0) {
-        $result[] = array(
+        $result['county'] = (object)array(
           'id' => 'county',
           'name' => t('County tax'),
           'amount' => floatval($reply->taxReply->totalCountryTaxAmount),
@@ -1179,7 +1191,7 @@ function uc_cybersource_uc_calculate_tax($order) {
 
       // Add a district tax if applicable.
       if (floatval($reply->taxReply->totalDistrictTaxAmount) > 0) {
-        $result[] = array(
+        $result['district'] = (object)array(
           'id' => 'district',
           'name' => t('District tax'),
           'amount' => floatval($reply->taxReply->totalDistrictTaxAmount),
@@ -1188,7 +1200,7 @@ function uc_cybersource_uc_calculate_tax($order) {
 
       // Add a state tax if applicable.
       if (floatval($reply->taxReply->totalStateTaxAmount) > 0) {
-        $result[] = array(
+        $result['state'] = (object)array(
           'id' => 'state',
           'name' => t('@state state tax', array('@state' => $reply->taxReply->state)),
           'amount' => floatval($reply->taxReply->totalStateTaxAmount),
@@ -1206,7 +1218,7 @@ function uc_cybersource_uc_calculate_tax($order) {
         watchdog('uc_cybersource', 'Tax calculation produced uneven results. Expected a total of @total, received the following: @dump', array('@total' => uc_currency_format($reply->taxReply->totalTaxAmount), '@dump' => '<pre>' . print_r($result, TRUE) . '</pre>'), WATCHDOG_ERROR);
 
         $result = array(
-          array(
+          'total' => (object)array(
             'id' => 'total',
             'name' => t('Tax'),
             'amount' => floatval($reply->taxReply->totalTaxAmount),
@@ -1264,7 +1276,7 @@ function _uc_cybersource_soap_login_data() {
   // If CC encryption has been configured properly.
   if ($key = uc_credit_encryption_key()) {
     // Setup our encryption object.
-    $crypt = new uc_encryption_class;
+    $crypt = new UbercartEncryption();
 
     // Decrypt the Merchant ID and Transaction key.
     if (!empty($merchant_id)) {

@@ -53,7 +53,7 @@ function media_flickr_add($form, &$form_state = array(), $redirect = NULL) {
     ':uri' => 'flickr%%'
   ))->fetchAll();
 
-  module_load_include('inc', 'media_flickr', 'media_flickr.utilities');
+  module_load_include('inc', 'media_flickr', 'includes/media_flickr.utilities');
 
   foreach ($results as $result) {
     $file = file_load($result->fid);

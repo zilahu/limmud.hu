@@ -8,9 +8,10 @@
  * Filter coupons based on what product types they apply to
  */
 class uc_coupon_handler_filter_product_type extends views_handler_filter_in_operator {
+
   function get_value_options() {
     $this->value_options = array();
-    foreach (module_invoke_all('product_types') as $type) {
+    foreach (module_invoke_all('uc_product_types') as $type) {
       $this->value_options[$type] = $type;
     }
   }
@@ -20,8 +21,10 @@ class uc_coupon_handler_filter_product_type extends views_handler_filter_in_oper
     if (is_array($this->value) && count($this->value)) {
       $search = implode("|", $this->value);
       $regexp = ".*product_types.*{[^}]*($search).*}";
-
-      $this->query->add_where($this->options['group'], "uc_coupons.data " . ($this->options['operator'] !== 'in' ? "NOT " : "") . "REGEXP '%s'", $regexp);
+      $this->query->add_where_expression($this->options['group'], 
+       "uc_coupons.data " . ($this->options['operator'] !== 'in' ? "NOT " : "") . "REGEXP :re",
+        array(':re' => $regexp)
+        );
     }
   }
 }

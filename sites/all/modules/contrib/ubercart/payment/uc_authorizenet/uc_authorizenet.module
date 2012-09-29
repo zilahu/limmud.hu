@@ -87,7 +87,7 @@ function uc_authorizenet_uc_payment_gateway() {
 function uc_authorizenet_settings_form($form, &$form_state) {
   $login_data = _uc_authorizenet_login_data();
 
-  // Allow admin to set duplicate window
+  // Allow admin to set duplicate window.
   $form['uc_authnet_duplicate_window'] = array(
     '#type' => 'select',
     '#title' => t('Duplicate window'),
@@ -114,14 +114,12 @@ function uc_authorizenet_settings_form($form, &$form_state) {
   $form['api_id_key']['uc_authnet_api_test_gateway_url'] = array(
     '#type' => 'textfield',
     '#title' => t('Authorize.net Test Gateway URL'),
-    '#default_value' => variable_get('uc_authnet_api_test_gateway_url',
-                                     UC_AUTHORIZENET_TEST_GATEWAY_URL),
+    '#default_value' => variable_get('uc_authnet_api_test_gateway_url', UC_AUTHORIZENET_TEST_GATEWAY_URL),
   );
   $form['api_id_key']['uc_authnet_api_live_gateway_url'] = array(
     '#type' => 'textfield',
     '#title' => t('Authorize.net Live Gateway URL'),
-    '#default_value' => variable_get('uc_authnet_api_live_gateway_url',
-                                     UC_AUTHORIZENET_LIVE_GATEWAY_URL),
+    '#default_value' => variable_get('uc_authnet_api_live_gateway_url', UC_AUTHORIZENET_LIVE_GATEWAY_URL),
   );
 
   $form['aim_settings'] = array(
@@ -225,7 +223,7 @@ function uc_authorizenet_payment_gateway_settings_submit($form, &$form_state) {
   // If CC encryption has been configured properly.
   if ($key = uc_credit_encryption_key()) {
     // Setup our encryption object.
-    $crypt = new uc_encryption_class;
+    $crypt = new UbercartEncryption();
 
     // Encrypt the Login ID, Transaction key, and MD5 Hash.
     if (!empty($form_state['values']['uc_authnet_md5_hash'])) {
@@ -452,11 +450,11 @@ function _uc_authorizenet_charge($order, $amount, $data) {
 
   // Build the POST data for the transaction.
   $submit_data = array(
-    // Merchant Information
-    'x_login' => variable_get('uc_authnet_api_login_id', ''),
-    'x_tran_key' => variable_get('uc_authnet_api_transaction_key', ''),
+    // Merchant information.
+    'x_login' => trim(variable_get('uc_authnet_api_login_id', '')),
+    'x_tran_key' => trim(variable_get('uc_authnet_api_transaction_key', '')),
 
-    // Transaction Information
+    // Transaction information.
     'x_version' => '3.1',
     'x_type' => _uc_authorizenet_txn_map($data['txn_type']),
     // 'x_method' => $order->payment_method == 'credit' ? 'CC' : 'ECHECK',
@@ -471,11 +469,11 @@ function _uc_authorizenet_charge($order, $amount, $data) {
     'x_test_request' => variable_get('uc_authnet_aim_txn_mode', 'live_test') == 'live_test' ? 'TRUE' : 'FALSE',
     'x_duplicate_window' => variable_get('uc_authnet_duplicate_window', 120),
 
-    // Order Information
+    // Order information.
     'x_invoice_num' => $order->order_id,
     'x_description' => substr(implode(', ', $description), 0, 255),
 
-    // Customer Information
+    // Customer information.
     'x_first_name' => substr($order->billing_first_name, 0, 50),
     'x_last_name' => substr($order->billing_last_name, 0, 50),
     'x_company' => substr($order->billing_company, 0, 50),
@@ -490,7 +488,7 @@ function _uc_authorizenet_charge($order, $amount, $data) {
     'x_cust_id' => substr($order->uid, 0, 20),
     'x_customer_ip' => substr(ip_address(), 0, 15),
 
-    // Shipping Information
+    // Shipping information.
     'x_ship_to_first_name' => substr($order->delivery_first_name, 0, 50),
     'x_ship_to_last_name' => substr($order->delivery_last_name, 0, 50),
     'x_ship_to_company' => substr($order->delivery_company, 0, 50),
@@ -500,7 +498,7 @@ function _uc_authorizenet_charge($order, $amount, $data) {
     'x_ship_to_zip' => substr($order->delivery_postal_code, 0, 20),
     'x_ship_to_country' => !$delivery_country ? '' : $delivery_country[0]['country_iso_code_2'],
 
-    // Extra Information
+    // Extra information.
     'x_delim_data' => 'TRUE',
     'x_delim_char' => '|',
     'x_encap_char' => '"',
@@ -514,12 +512,10 @@ function _uc_authorizenet_charge($order, $amount, $data) {
 
   // Determine the correct URL based on the transaction mode.
   if (variable_get('uc_authnet_aim_txn_mode', 'live_test') == 'developer_test') {
-    $post_url = variable_get('uc_authnet_api_test_gateway_url',
-                             UC_AUTHORIZENET_TEST_GATEWAY_URL);
+    $post_url = variable_get('uc_authnet_api_test_gateway_url', UC_AUTHORIZENET_TEST_GATEWAY_URL);
   }
   else {
-    $post_url = variable_get('uc_authnet_api_live_gateway_url',
-                             UC_AUTHORIZENET_LIVE_GATEWAY_URL);
+    $post_url = variable_get('uc_authnet_api_live_gateway_url', UC_AUTHORIZENET_LIVE_GATEWAY_URL);
   }
 
   // Translate the data array into a string we can POST.
@@ -589,7 +585,7 @@ function _uc_authorizenet_charge($order, $amount, $data) {
       'success' => TRUE,
       'comment' => $message,
       'message' => $message,
-      'data' => array('module' => 'uc_authorizenet', 'txn_type' => $response[11], 'txn_id' => $response[6]),
+      'data' => array('module' => 'uc_authorizenet', 'txn_type' => $response[11], 'txn_id' => $response[6], 'txn_authcode' => $response[4]),
       'uid' => $user->uid,
     );
 
@@ -959,7 +955,7 @@ function uc_authorizenet_arb_cancel($subscription_id, $order_id = NULL, $fee = a
     return FALSE;
   }
 
-  uc_order_comment_save($order_id, 0, t('Authorize.Net: Subscription @subscription_id cancelled.', array('@subscription_id' => $subscription_id)), 'admin');
+  uc_order_comment_save($order_id, 0, t('Authorize.Net: Subscription @subscription_id canceled.', array('@subscription_id' => $subscription_id)), 'admin');
 
   // Let other modules act on the canceled fee.
   if (!empty($fee)) {
@@ -976,8 +972,8 @@ function uc_authorizenet_arb_cancel($subscription_id, $order_id = NULL, $fee = a
 function _uc_authorizenet_xml_api_wrapper($request, $xml) {
   return '<?xml version="1.0" encoding="utf-8"?><' . $request
         . ' xmlns="AnetApi/xml/v1/schema/AnetApiSchema.xsd"><merchantAuthentication>'
-        . '<name>' . variable_get('uc_authnet_api_login_id', '') . '</name>'
-        . '<transactionKey>' . variable_get('uc_authnet_api_transaction_key', '')
+        . '<name>' . trim(variable_get('uc_authnet_api_login_id', '')) . '</name>'
+        . '<transactionKey>' . trim(variable_get('uc_authnet_api_transaction_key', ''))
         . '</transactionKey></merchantAuthentication>' . $xml . '</' . $request . '>';
 }
 
@@ -1221,7 +1217,7 @@ function _uc_authorizenet_login_data() {
   // If CC encryption has been configured properly.
   if ($key = uc_credit_encryption_key()) {
     // Setup our encryption object.
-    $crypt = new uc_encryption_class;
+    $crypt = new UbercartEncryption();
 
     // Decrypt the MD5 Hash.
     if (!empty($md5_hash)) {

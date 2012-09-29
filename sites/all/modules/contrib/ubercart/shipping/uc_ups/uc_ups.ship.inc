@@ -79,9 +79,9 @@ function uc_ups_fulfill_order($form, &$form_state, $order, $package_ids) {
       );
       $pkg_form['weight'] = array(
         '#type'           => 'container',
+        '#attributes'     => array('class' => array('uc-inline-form', 'clearfix')),
         '#description'    => t('Weight of the package. Default value is sum of product weights in the package.'),
         '#weight'         => 15,
-        '#theme'          => 'uc_product_inline_form',
       );
       $pkg_form['weight']['weight'] = array(
         '#type'          => 'textfield',
@@ -105,9 +105,9 @@ function uc_ups_fulfill_order($form, &$form_state, $order, $package_ids) {
       );
       $pkg_form['dimensions'] = array(
         '#type'          => 'container',
+        '#attributes'    => array('class' => array('uc-inline-form', 'clearfix')),
         '#description'   => t('Physical dimensions of the package.'),
         '#weight'        => 20,
-        '#theme'         => 'uc_product_inline_form',
       );
       $pkg_form['dimensions']['length'] = array(
         '#type'          => 'textfield',
@@ -354,10 +354,10 @@ function uc_ups_fulfill_order_submit($form, &$form_state) {
  *   ShipConfirm XML document to send to UPS.
  */
 function uc_ups_shipment_request($packages, $origin, $destination, $ups_service) {
-  $store['name'] = variable_get('uc_store_name', NULL);
+  $store['name'] = uc_store_name();
   $store['owner'] = variable_get('uc_store_owner', NULL);
-  $store['email'] = variable_get('uc_store_email', NULL);
-  $store['email_from'] = variable_get('uc_store_email', NULL);
+  $store['email'] = uc_store_email();
+  $store['email_from'] = uc_store_email();
   $store['phone'] = variable_get('uc_store_phone', NULL);
   $store['fax'] = variable_get('uc_store_fax', NULL);
   $store['street1'] = variable_get('uc_store_street1', NULL);
@@ -680,8 +680,7 @@ function uc_ups_confirm_shipment_submit($form, &$form_state) {
   foreach ($response->ShipmentResults->PackageResults as $package_results) {
     $package =& current($shipment->packages);
     $package->tracking_number = (string) $package_results->TrackingNumber;
-    //$label_image = (string) $package_results->LabelImage->GraphicImage;
-    $label_image =  '';
+    $label_image = (string) $package_results->LabelImage->GraphicImage;
     // Save the label
     $directory = 'public://ups_labels';
     if (file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
@@ -754,12 +753,12 @@ function uc_ups_request_pickup($digest, $order_id = 0, $packages = array()) {
  * @ingroup themeable
  */
 function theme_uc_ups_label_image() {
-  $args = explode('/', $_GET['q'], 7);
-  if (count($args) != 7) {
+  $args = explode('/', $_GET['q'], 8);
+  if (count($args) != 8) {
     return MENU_NOT_FOUND;
   }
 
-  $image_path = file_stream_wrapper_uri_normalize($args[6]);
+  $image_path = file_create_url(file_stream_wrapper_uri_normalize($args[7]));
 
   $output = <<<EOLABEL
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.2//EN">

@@ -34,7 +34,7 @@ function uc_line_item_total($op, $order) {
     case 'display':
       $lines[] = array(
         'id' => 'total',
-        'title' => t('Total'),
+        'title' => t('Order total'),
         'amount' => uc_order_get_total($order),
       );
       return $lines;
@@ -80,8 +80,13 @@ function uc_order_update_line_item($id, $title, $amount, $data = NULL) {
 }
 
 /**
- * Deletes a line item, or pass $order as TRUE and $id as an order_id to
- * delete every line item attached to an order.
+ * Deletes a specific line item, or every line item in an order.
+ *
+ * @param $id
+ *   The line item ID, or order ID.
+ * @param $order_id
+ *   If FALSE, deletes the line item with the specified ID (default).
+ *   If TRUE, deletes all line items on the order with the specified ID.
  */
 function uc_order_delete_line_item($id, $order = FALSE) {
   if ($order === FALSE) {
@@ -116,7 +121,7 @@ function uc_order_line_item_add($order_id, $type, $title, $amount, $weight = NUL
   );
   drupal_write_record('uc_order_line_items', $line_item);
 
-  return TRUE;
+  return $line_item;
 }
 
 /**

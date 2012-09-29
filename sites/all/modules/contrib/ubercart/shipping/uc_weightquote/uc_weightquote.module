@@ -2,12 +2,10 @@
 
 /**
  * @file
- * Shipping quote module that defines a weight-based shipping rate for each product.
+ * Shipping quote module that defines a weight-based shipping rate for each
+ * product.
  */
 
-/******************************************************************************
- * Drupal Hooks                                                               *
- ******************************************************************************/
 
 /**
  * Implements hook_menu().
@@ -15,15 +13,9 @@
 function uc_weightquote_menu() {
   $items = array();
 
-  $items['admin/store/settings/quotes/methods/weightquote'] = array(
-    'title' => 'Weight quote',
-    'page callback' => 'uc_weightquote_admin_methods',
-    'access arguments' => array('configure quotes'),
-    'type' => MENU_LOCAL_TASK,
-    'file' => 'uc_weightquote.admin.inc',
-  );
   $items['admin/store/settings/quotes/methods/weightquote/add'] = array(
     'title' => 'Add weight quote',
+    'description' => 'Create a new weight based shipping quote.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_weightquote_admin_method_edit_form'),
     'access arguments' => array('configure quotes'),
@@ -32,6 +24,7 @@ function uc_weightquote_menu() {
   );
   $items['admin/store/settings/quotes/methods/weightquote/%'] = array(
     'title' => 'Edit weight quote method',
+    'description' => 'Edit an existing weight based shipping quote.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_weightquote_admin_method_edit_form', 6),
     'access arguments' => array('configure quotes'),
@@ -39,6 +32,7 @@ function uc_weightquote_menu() {
   );
   $items['admin/store/settings/quotes/weightquote/%/delete'] = array(
     'title' => 'Delete weight quote method',
+    'description' => 'Delete a weight based shipping quote.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_weightquote_admin_method_confirm_delete', 5),
     'access arguments' => array('configure quotes'),
@@ -55,8 +49,6 @@ function uc_weightquote_menu() {
  */
 function uc_weightquote_form_alter(&$form, &$form_state, $form_id) {
   if (uc_product_is_product_form($form)) {
-    $sign_flag = variable_get('uc_sign_after_amount', FALSE);
-    $currency_sign = variable_get('uc_currency_sign', '$');
     $weight = variable_get('uc_quote_method_weight', array());
     $result = db_query("SELECT mid, title, product_rate FROM {uc_weightquote_methods}");
     foreach ($result as $method) {
@@ -75,14 +67,13 @@ function uc_weightquote_form_alter(&$form, &$form_state, $form_id) {
         );
       }
       $form['shipping']['weightquote'][$method->mid] = array(
-        '#type' => 'textfield',
-        '#title' => $method->title,
+        '#type' => 'uc_price',
+        '#title' => check_plain($method->title),
         '#default_value' => isset($form['#node']->weightquote[$method->mid]) ? $form['#node']->weightquote[$method->mid] : '',
         '#description' => t('Default rate: %price per @unit', array('%price' => uc_currency_format($method->product_rate), '@unit' => variable_get('uc_weight_unit', 'lb'))),
-        '#size' => 16,
-        '#field_prefix' => $sign_flag ? '' : $currency_sign,
-        '#field_suffix' => ($sign_flag ? ($currency_sign . ' ') : '') . t('per @unit', array('@unit' => variable_get('uc_weight_unit', 'lb'))),
+        '#field_suffix' => t('per @unit', array('@unit' => variable_get('uc_weight_unit', 'lb'))),
         '#weight' => $weight['weightquote_' . $method->mid],
+        '#empty_zero' => FALSE,
       );
     }
   }
@@ -111,7 +102,7 @@ function uc_weightquote_node_update($node) {
         ->fields(array('vid', 'nid', 'mid', 'rate'));
 
       foreach ($node->weightquote as $mid => $rate) {
-        if ($rate !== '') {
+        if (is_numeric($rate) && $rate >= 0) {
           $query->values(array(
               'vid' => $node->vid,
               'nid' => $node->nid,
@@ -165,30 +156,29 @@ function uc_weightquote_node_revision_delete($node) {
     ->execute();
 }
 
-/******************************************************************************
- * Ubercart Hooks                                                             *
- ******************************************************************************/
-
 /**
  * Implements hook_uc_shipping_method().
  */
 function uc_weightquote_uc_shipping_method() {
   $methods = array();
 
-  $enabled = variable_get('uc_quote_enabled', array());
-  $weight = variable_get('uc_quote_method_weight', array());
-
-  $result = db_query("SELECT mid, title, label FROM {uc_weightquote_methods}");
+  $result = db_query("SELECT mid, title, label, base_rate, product_rate FROM {uc_weightquote_methods}");
   foreach ($result as $method) {
-    // Ensure the default values are set.
-    $enabled += array('weightquote_' . $method->mid => FALSE);
-    $weight += array('weightquote_' . $method->mid => 0);
-
     $methods['weightquote_' . $method->mid] = array(
       'id' => 'weightquote_' . $method->mid,
       'module' => 'uc_weightquote',
       'title' => $method->title,
-      'enabled' => isset($enabled['weightquote_' . $method->mid]) ? $enabled['weightquote_' . $method->mid] : FALSE,
+      'description' => t('!base_rate + !product_rate per !unit', array('!base_rate' => uc_currency_format($method->base_rate), '!product_rate' => uc_currency_format($method->product_rate), '!unit' => variable_get('uc_weight_unit', 'lb'))),
+      'operations' => array(
+        'edit' => array(
+          'title' => t('edit'),
+          'href' => 'admin/store/settings/quotes/methods/weightquote/' . $method->mid,
+        ),
+        'delete' => array(
+          'title' => t('delete'),
+          'href' => 'admin/store/settings/quotes/weightquote/' . $method->mid . '/delete',
+        ),
+      ),
       'quote' => array(
         'type' => 'order',
         'callback' => 'uc_weightquote_quote',
@@ -196,16 +186,12 @@ function uc_weightquote_uc_shipping_method() {
           $method->label,
         ),
       ),
-      'weight' => isset($weight['weightquote_' . $method->mid]) ? $weight['weightquote_' . $method->mid] : 0,
+      'enabled' => TRUE,
     );
   }
 
   return $methods;
 }
-
-/******************************************************************************
- * Module Functions                                                           *
- ******************************************************************************/
 
 /**
  * Standard callback to return a shipping rate via the weight quote method.

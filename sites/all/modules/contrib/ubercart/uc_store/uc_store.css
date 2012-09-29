@@ -2,26 +2,15 @@
  * @file
  * Styles for uc_store module.
  */
+
 .uc-price {
   white-space: nowrap;
 }
 
-.uc-customer-table .uc-store-icon {
+.uc-inline-form .form-item {
   float: left;
-  margin-right: .5em;
-}
-
-.uc-customer-table tr.odd:hover, .uc-customer-table tr.even:hover {
-  background-color: #ddd;
-}
-
-.uc-cust-orders-table tr.odd:hover, .uc-cust-orders-table tr.even:hover {
-  background-color: #ddd;
-}
-
-.uc-cust-orders-table .uc-store-icon {
-  float: left;
-  margin-right: .5em;
+  margin-right: 1em;
+  padding-top: 5px;
 }
 
 #store-footer {
@@ -31,25 +20,30 @@
   width: 100%;
 }
 
-#uc-country-import-form .form-item, #uc-country-import-form .form-item label {
-  display: inline;
-  float: left;
-  margin-right: 1em;
+.uc-default-submit {
+  height: 0px;
+  left: -9999px;
+  position: absolute;
+  top: -9999px;
+  width: 0px;
 }
 
-#uc-country-import-form .form-submit {
-  float: left;
-  margin-top: 1em;
+.uc-store-status td {
+  vertical-align: top;
 }
 
-#uc-country-import-form table {
-  clear: left;
+.uc-store-status td.title {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.uc-store-status td.message {
+  width: 100%;
 }
 
 /**
  * CSS rules for address fields.
  */
-
 .uc-store-address-field .form-item {
   clear: left;
   margin-top: 2px;
@@ -69,8 +63,8 @@
 }
 
 .vertical-tabs .form-type-textfield input {
-  width:auto;
-} 
+  width: auto;
+}
 
 .ubercart-throbber {
   background-image: url(images/throbber.gif);
@@ -78,7 +72,9 @@
   background-repeat: no-repeat;
 }
 
-/* Add icon support for admin (http://drupal.org/project/admin). */
+/**
+ * Icon support for admin (http://drupal.org/project/admin).
+ */
 .path-admin-store-orders span.icon {
   background: transparent url('images/menu_orders.gif') no-repeat !important;
 }
@@ -91,14 +87,8 @@
 .path-admin-store-settings span.icon {
   background: transparent url('images/menu_store_settings.gif') no-repeat !important;
 }
-.path-admin-store-attributes span.icon {
-  background: transparent url('images/menu_store_settings.gif') no-repeat !important;
-}
 .path-admin-store-reports span.icon {
   background: transparent url('images/menu_reports.gif') no-repeat !important;
-}
-.path-admin-store-help span.icon {
-  background: transparent url('images/menu_help.gif') no-repeat !important;
 }
 
 /**

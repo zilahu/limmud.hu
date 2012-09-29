@@ -35,17 +35,15 @@ function language_switcher_menu() {
 }
 
 /**
- * Get enabled languages
+ * Get enabled languages.
  */
 function language_switcher_enabled_languages() {
-  $query = db_select('languages', '')
-    ->condition('languages.enabled', 1, '=')
-    ->fields('languages', array('language', 'name', 'native', 'direction', 'prefix'));
-
+  $enabled = language_list('enabled');
+  $enabled = $enabled[1];
   $languages = array();
-  $results = $query->execute();
-  foreach ($results as $result) {
-    $languages[] = $result->language;
+
+  foreach ($enabled as $langcode => $language) {
+    $languages[] = $langcode;
   }
 
   return $languages;
@@ -54,10 +52,10 @@ function language_switcher_enabled_languages() {
 /**
  * Implements hook_page_alter().
  *
- * Re-sort and group nodes in respect to each node's language
+ * Re-sort and group nodes in respect to each node's language.
  */
 function language_switcher_page_alter(&$page) {
-  $enabled_languages = language_switcher_enabled_languages();
+  $enabled = language_switcher_enabled_languages();
   $mode = variable_get('language_switcher_mode', 'off');
 
   if ($mode == 'multi') {
@@ -67,22 +65,21 @@ function language_switcher_page_alter(&$page) {
 
         $lang_sorted_nodes = array();
         foreach ($nodes as $key => $value) {
-
-          // If it's a node
+          // If it's a node with language.
           if (isset($value['#node']->language)) {
-            // If node listing page
+            // If node listing page, e.g. frontpage.
             if ($value['#view_mode'] == 'teaser') {
-              $lang_code = $value['#node']->language;
-              if (in_array($lang_code, $enabled_languages)) {
-                $lang_sorted_nodes[$lang_code][] = $value;
+              $langcode = $value['#node']->language;
+              if (in_array($langcode, $enabled)) {
+                $lang_sorted_nodes[$langcode][] = $value;
               }
             }
             elseif ($value['#view_mode'] == 'full') {
-              // @todo fix single node view
+              // @TODO fix single node view
+              // @TODO support entity_translation
               return;
 
               $node = node_load($key);
-
               if ($node->tnid) {
                 $translations = translation_node_get_translations($node->tnid);
                 $nids = array();
@@ -94,7 +91,7 @@ function language_switcher_page_alter(&$page) {
                 $builds = node_view_multiple($translations_nodes, $value['#view_mode']);
                 $page[$region]['system_main']['nodes'] = $builds;
 
-                // @todo do we have a page with many full nodes?
+                // @TODO do we have a page with many full nodes?
                 return;
               }
             }
@@ -145,7 +142,7 @@ function language_switcher_query_node_access_alter(QueryAlterableInterface $quer
 }
 
 /**
- * Add required files to override default language switcher block behaviour
+ * Add required files to override default language switcher block behaviour.
  */
 function language_switcher_add_files() {
   drupal_add_js(array('languages' => language_switcher_enabled_languages()), 'setting');

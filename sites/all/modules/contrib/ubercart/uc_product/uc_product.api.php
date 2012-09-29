@@ -11,6 +11,40 @@
  */
 
 /**
+ * Make alterations to a specific variant of a product node.
+ *
+ * @param $node
+ *   The product node to be altered.
+ */
+function hook_uc_product_alter(&$node) {
+  if (isset($node->data['attributes']) && is_array($node->data['attributes'])) {
+    $options = _uc_cart_product_get_options($node);
+    foreach ($options as $option) {
+      $node->cost += $option['cost'];
+      $node->price += $option['price'];
+      $node->weight += $option['weight'];
+    }
+
+    $combination = array();
+    foreach ($node->data['attributes'] as $aid => $value) {
+      if (is_numeric($value)) {
+        $attribute = uc_attribute_load($aid, $node->nid, 'product');
+        if ($attribute && ($attribute->display == 1 || $attribute->display == 2)) {
+          $combination[$aid] = $value;
+        }
+      }
+    }
+    ksort($combination);
+
+    $model = db_query("SELECT model FROM {uc_product_adjustments} WHERE nid = :nid AND combination LIKE :combo", array(':nid' => $node->nid, ':combo' => serialize($combination)))->fetchField();
+
+    if (!empty($model)) {
+      $node->model = $model;
+    }
+  }
+}
+
+/**
  * Performs actions on product classes.
  *
  * @param $type
@@ -40,16 +74,34 @@ function hook_uc_product_class($type, $op) {
 }
 
 /**
+ * Define default product classes.
+ *
+ * The results of this hook are eventually passed through hook_node_info(),
+ * so you may include any keys that hook_node_info() uses. Defaults will
+ * be provided where keys are not set. This hook can also be used to
+ * override the default "product" product class name and description.
+ */
+function hook_uc_product_default_classes() {
+  return array(
+    'my_class' => array(
+      'name' => t('My product class'),
+      'description' => t('Content type description for my product class.'),
+    ),
+  );
+}
+
+/**
  * Returns a structured array representing the given product's description.
  *
  * Modules that add data to cart items when they are selected should display it
  * with this hook. The return values from each implementation will be
- * sent through to hook_product_description_alter() implementations and then
+ * sent through to hook_uc_product_description_alter() implementations and then
  * all descriptions are rendered using drupal_render().
  *
  * @param $product
  *   Product. Usually one of the values of the array returned by
  *   uc_cart_get_contents().
+ *
  * @return
  *   A structured array that can be fed into drupal_render().
  */
@@ -116,9 +168,9 @@ function hook_uc_product_description_alter(&$description, $product) {
  *
  * Code lifted from uc_attribute.module.
  */
-function hook_uc_product_models($node) {
+function hook_uc_product_models($nid) {
   // Get all the SKUs for all the attributes on this node.
-  $models = db_query("SELECT DISTINCT model FROM {uc_product_adjustments} WHERE nid = :nid", array(':nid' => $node->nid))->fetchCol();
+  $models = db_query("SELECT DISTINCT model FROM {uc_product_adjustments} WHERE nid = :nid", array(':nid' => $nid))->fetchCol();
 
   return $models;
 }

@@ -18,6 +18,7 @@ function uc_store_requirements($phase) {
       'error' => REQUIREMENT_ERROR,
     );
 
+    module_load_include('inc', 'uc_store', 'uc_store.admin');
     $results = module_invoke_all('uc_store_status');
     foreach ($results as $status) {
       $requirements[] = array(
@@ -161,7 +162,6 @@ function uc_store_install() {
 function uc_store_uninstall() {
   db_delete('variable')
     ->condition(db_or()
-      ->condition('name', 'user_initials_%', 'LIKE')
       ->condition('name', 'uc_address_format_%', 'LIKE')
       ->condition('name', 'uc_currency_%', 'LIKE')
       ->condition('name', 'uc_store_%', 'LIKE')
@@ -176,6 +176,7 @@ function uc_store_uninstall() {
   variable_del('date_format_uc_store');
   variable_del('uc_address_fields');
   variable_del('uc_address_fields_required');
+  variable_del('uc_address_fields_weight');
   variable_del('uc_footer_message');
 
   // Unset mail Ubercart hander in variable mail_system
@@ -195,6 +196,7 @@ function uc_store_uninstall() {
 function uc_store_update_last_removed() {
   return 6005;
 }
+
 /*
  * Removed update 7000.
  */
@@ -241,9 +243,49 @@ function uc_store_update_7004() {
 }
 
 /**
- * Change date formatting to use D7 API.
+ * Changes date formatting to use D7 API.
  */
 function uc_store_update_7005() {
   variable_set('date_format_uc_store', variable_get('uc_date_format_default', 'm/d/Y'));
   variable_del('uc_date_format_default');
+}
+
+/**
+ * Deletes user initials variables.
+ */
+function uc_store_update_7006() {
+  db_delete('variable')->condition('name', 'user_initials_%', 'LIKE')->execute();
+}
+
+/**
+ * Ensures Rules and Views are installed.
+ */
+function uc_store_update_7007() {
+  $modules = array('rules', 'views');
+  module_enable($modules);
+
+  foreach ($modules as $module) {
+    if (!module_exists($module)) {
+      throw new DrupalUpdateException(t('Rules and Views are now dependencies of Ubercart, but are not currently available. Please download them to sites/all/modules and run update.php again.'));
+    }
+  }
+}
+
+/**
+ * Deletes unused address field titles.
+ */
+function uc_store_update_7008() {
+  variable_del('uc_field_address');
+  variable_del('uc_field_email');
+  variable_del('uc_field_street');
+}
+
+/**
+ * Rebuilds theme registry to pick up new location of theme functions.
+ *
+ * All theme functions in Ubercart were moved out of the .module files and
+ * into .theme.inc files to reduce code memory footprint.
+ */
+function uc_store_update_7300() {
+  drupal_theme_rebuild();
 }

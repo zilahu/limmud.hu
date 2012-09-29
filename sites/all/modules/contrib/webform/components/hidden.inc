@@ -68,11 +68,13 @@ function _webform_edit_hidden($component) {
  * Implements _webform_render_component().
  */
 function _webform_render_hidden($component, $value = NULL, $filter = TRUE) {
+  $node = isset($component['nid']) ? node_load($component['nid']) : NULL;
+
   // Set filtering options for "value" types, which are not displayed to the
   // end user so they do not need to be sanitized.
   $strict = $component['extra']['hidden_type'] != 'value';
   $allow_anonymous = $component['extra']['hidden_type'] == 'value';
-  $default_value = $filter ? _webform_filter_values($component['value'], NULL, NULL, NULL, $strict, $allow_anonymous) : $component['value'];
+  $default_value = $filter ? _webform_filter_values($component['value'], $node, NULL, NULL, $strict, $allow_anonymous) : $component['value'];
   if (isset($value[0])) {
     $default_value = $value[0];
   }
@@ -108,15 +110,6 @@ function _webform_display_hidden($component, $value, $format = 'html') {
     '#theme_wrappers' => $format == 'text' ? array('webform_element_text') : array('webform_element'),
     '#translatable' => array('title'),
   );
-
-  // TODO: This check is unusual. It shows hidden fields in e-mails but not
-  // when viewing in the browser unless you're an administrator. This should be
-  // a more logical check. See these related issues:
-  // http://drupal.org/node/313639
-  // http://drupal.org/node/781786
-  if ($format == 'html') {
-    $element['#access'] = user_access('edit all webform submissions') || user_access('access all webform results');
-  }
 
   return $element;
 }

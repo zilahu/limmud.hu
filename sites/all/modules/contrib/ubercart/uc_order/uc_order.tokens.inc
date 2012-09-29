@@ -143,15 +143,13 @@ function uc_order_tokens($type, $tokens, $data = array(), $options = array()) {
     foreach ($tokens as $name => $original) {
       switch ($name) {
         case 'new-username':
-          if (isset($_SESSION['new_user']) && is_array($_SESSION['new_user'])) {
-            $replacements[$original] = $sanitize ? check_plain($_SESSION['new_user']['name']) : $_SESSION['new_user']['name'];
+          if (isset($order->data['new_user']['name'])) {
+            $replacements[$original] = $sanitize ? check_plain($order->data['new_user']['name']) : $order->data['new_user']['name'];
           }
           break;
 
         case 'new-password':
-          if (isset($_SESSION['new_user']) && is_array($_SESSION['new_user'])) {
-            $replacements[$original] = $sanitize ? check_plain($_SESSION['new_user']['pass']) : $_SESSION['new_user']['pass'];
-          }
+          $replacements[$original] = isset($order->password) ? $order->password : t('Your password');
           break;
 
         case 'order-number':
@@ -175,13 +173,11 @@ function uc_order_tokens($type, $tokens, $data = array(), $options = array()) {
           break;
 
         case 'subtotal':
+          $subtotal = '';
           if (is_array($order->line_items)) {
             foreach ($order->line_items as $key => $value) {
               if ($value['type'] == 'subtotal') {
                 $subtotal = uc_currency_format($order->line_items[$key]['amount']);
-              }
-              if ($value['type'] == 'shipping' && !isset($ship_method)) {
-                $ship_method = $value['title'];
               }
             }
           }
@@ -193,9 +189,6 @@ function uc_order_tokens($type, $tokens, $data = array(), $options = array()) {
             foreach ($order->line_items as $key => $value) {
               if ($value['type'] == 'subtotal') {
                 $subtotal = $order->line_items[$key]['amount'];
-              }
-              if ($value['type'] == 'shipping' && !isset($ship_method)) {
-                $ship_method = $value['title'];
               }
             }
           }
@@ -243,14 +236,20 @@ function uc_order_tokens($type, $tokens, $data = array(), $options = array()) {
           break;
 
         case 'first-name':
-        case 'last-name':
           if (variable_get('uc_customer_list_address', 'billing') == 'shipping') {
-            $replacements[$tokens['first-name']] = $sanitize ? check_plain($order->delivery_first_name) : $order->delivery_first_name;
-            $replacements[$tokens['last-name']] = $sanitize ? check_plain($order->delivery_last_name) : $order->delivery_last_name;
+            $replacements[$original] = $sanitize ? check_plain($order->delivery_first_name) : $order->delivery_first_name;
           }
           else {
-            $replacements[$tokens['first-name']] = $sanitize ? check_plain($order->billing_first_name) : $order->billing_first_name;
-            $replacements[$tokens['last-name']] = $sanitize ? check_plain($order->billing_last_name) : $order->billing_last_name;
+            $replacements[$original] = $sanitize ? check_plain($order->billing_first_name) : $order->billing_first_name;
+          }
+          break;
+
+        case 'last-name':
+          if (variable_get('uc_customer_list_address', 'billing') == 'shipping') {
+            $replacements[$original] = $sanitize ? check_plain($order->delivery_last_name) : $order->delivery_last_name;
+          }
+          else {
+            $replacements[$original] = $sanitize ? check_plain($order->billing_last_name) : $order->billing_last_name;
           }
           break;
 

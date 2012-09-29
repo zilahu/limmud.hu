@@ -35,7 +35,7 @@ function hook_uc_invoice_templates() {
  * customers to use coupons and wants to represent an entered coupon as a line
  * item.
  *
- * Once a line item has been defined in hook_line_item, Ubercart will begin
+ * Once a line item has been defined in hook_uc_line_item, Ubercart will begin
  * interacting with it in various parts of the code. One of the primary ways
  * this is done is through the callback function you specify for the line item.
  *
@@ -45,42 +45,42 @@ function hook_uc_invoice_templates() {
  *   item, and with the following members:
  *   - "title"
  *     - type: string
- *     - value: The title of the line item shown to the user in various interfaces.
- *         Use t().
+ *     - value: The title of the line item shown to the user in various
+ *       interfaces. Use t().
  *   - "callback"
  *     - type: string
  *     - value: Name of the line item's callback function, called for various
- *         operations.
+ *       operations.
  *   - "weight"
  *     - type: integer
  *     - value: Display order of the line item in lists; "lighter" items are
- *         displayed first.
+ *       displayed first.
  *   - "stored"
  *     - type: boolean
  *     - value: Whether or not the line item will be stored in the database.
- *         Should be TRUE for any line item that is modifiable from the order
- *         edit screen.
+ *       Should be TRUE for any line item that is modifiable from the order
+ *       edit screen.
  *   - "add_list"
  *     - type: boolean
  *     - value: Whether or not a line item should be included in the "Add a Line
- *         Item" select box on the order edit screen.
+ *       Item" select box on the order edit screen.
  *   - "calculated"
  *     - type: boolean
- *     - value: Whether or not the value of this line item should be added to the
- *         order total. (Ex: would be TRUE for a shipping charge line item but
- *         FALSE for the subtotal line item since the product prices are already
- *         taken into account.)
+ *     - value: Whether or not the value of this line item should be added to
+ *       the order total. (Ex: would be TRUE for a shipping charge line item but
+ *       FALSE for the subtotal line item since the product prices are already
+ *       taken into account.)
  *   - "display_only"
  *     - type: boolean
  *     - value: Whether or not this line item is simply a display of information
- *         but not calculated anywhere. (Ex: the total line item uses display to
- *         simply show the total of the order at the bottom of the list of line
- *         items.)
+ *       but not calculated anywhere. (Ex: the total line item uses display to
+ *       simply show the total of the order at the bottom of the list of line
+ *       items.)
  */
 function hook_uc_line_item() {
   $items[] = array(
     'id' => 'generic',
-    'title' => t('Empty Line'),
+    'title' => t('Empty line'),
     'weight' => 2,
     'default' => FALSE,
     'stored' => TRUE,
@@ -102,16 +102,14 @@ function hook_uc_line_item() {
  */
 function hook_uc_line_item_alter(&$item, $order) {
   $account = user_load($order->uid);
-  if (module_exists('rules')) {
-    rules_invoke_event('calculate_line_item_discounts', $item, $account);
-  }
+  rules_invoke_event('calculate_line_item_discounts', $item, $account);
 }
 
 /**
- * Alters the line item definitions declared in hook_line_item().
+ * Alters the line item definitions declared in hook_uc_line_item().
  *
  * @param &$items
- *   The combined return value of hook_line_item().
+ *   The combined return value of hook_uc_line_item().
  */
 function hook_uc_line_item_data_alter(&$items) {
   // Tax amounts are added in to other line items, so the actual tax line
@@ -128,12 +126,13 @@ function hook_uc_line_item_data_alter(&$items) {
  * Performs actions on orders.
  *
  * An order in Ubercart represents a single transaction. Orders are created
- * during the checkout process where they sit in the database with a status of In
- * Checkout. When a customer completes checkout, the order's status gets updated
- * to show that the sale has gone through. Once an order is created, and even
- * during its creation, it may be acted on by any module to connect extra
- * information to an order. Every time an action occurs to an order, hook_order()
- * gets invoked to let your modules know what's happening and make stuff happen.
+ * during the checkout process where they sit in the database with a status of
+ * "In checkout". When a customer completes checkout, the order's status gets
+ * updated to show that the sale has gone through. Once an order is created,
+ * and even during its creation, it may be acted on by any module to connect
+ * extra information to an order. Every time an action occurs to an order,
+ * hook_uc_order() gets invoked to let your modules know what's happening and
+ * make stuff happen.
  *
  * @param $op
  *   The action being performed.
@@ -162,7 +161,10 @@ function hook_uc_line_item_data_alter(&$items) {
  *     To prevent an order from passing through, you must return an array
  *     resembling the following one with the failure message:
  *     @code
- *       return array(array('pass' => FALSE, 'message' => t('We were unable to process your credit card.')));
+ *       return array(array(
+ *         'pass' => FALSE,
+ *         'message' => t('We were unable to process your credit card.'),
+ *       ));
  *     @endcode
  *   - can_update: Called before an order's status is changed to make sure the
  *     order can be updated. $order is the order object with the old order
@@ -196,6 +198,7 @@ function hook_uc_order($op, $order, $arg2) {
  *
  * @param $order
  *   An order object.
+ *
  * @return
  *   An array of specialized link arrays. Each link has the following keys:
  *   - name: The title of page being linked.
@@ -205,7 +208,6 @@ function hook_uc_order($op, $order, $arg2) {
  */
 function hook_uc_order_actions($order) {
   $actions = array();
-  $module_path = base_path() . drupal_get_path('module', 'uc_shipping');
   if (user_access('fulfill orders')) {
     $result = db_query("SELECT COUNT(nid) FROM {uc_order_products} WHERE order_id = :id AND data LIKE :data", array(':id' => $order->order_id, ':data' => '%s:9:\"shippable\";s:1:\"1\";%'));
     if ($result->fetchField()) {
@@ -213,7 +215,7 @@ function hook_uc_order_actions($order) {
       $actions[] = array(
         'name' => t('Package'),
         'url' => 'admin/store/orders/' . $order->order_id . '/packages',
-        'icon' => '<img src="' . $module_path . '/images/package.gif" alt="' . $title . '" />',
+        'icon' => theme('image', array('path' => drupal_get_path('module', 'uc_shipping') . '/images/package.gif')),
         'title' => $title,
       );
       $result = db_query("SELECT COUNT(package_id) FROM {uc_packages} WHERE order_id = :id", array(':id' => $order->order_id));
@@ -222,7 +224,7 @@ function hook_uc_order_actions($order) {
         $actions[] = array(
           'name' => t('Ship'),
           'url' => 'admin/store/orders/' . $order->order_id . '/shipments',
-          'icon' => '<img src="' . $module_path . '/images/ship.gif" alt="' . $title . '" />',
+          'icon' => theme('image', array('path' => drupal_get_path('module', 'uc_shipping') . '/images/ship.gif')),
           'title' => $title,
         );
       }
@@ -234,34 +236,36 @@ function hook_uc_order_actions($order) {
 /**
  * Registers callbacks for an order pane.
  *
- * This hook is used to add panes to the order viewing and administration screens.
- * The default panes include areas to display and edit addresses, products,
- * comments, etc. Developers should use this hook when they need to display or
- * modify any custom data pertaining to an order. For example, a store that uses
- * a custom checkout pane to find out a customer's desired delivery date would
- * then create a corresponding order pane to show the data on the order screens.
+ * This hook is used to add panes to the order viewing and administration
+ * screens. The default panes include areas to display and edit addresses,
+ * products, comments, etc. Developers should use this hook when they need to
+ * display or modify any custom data pertaining to an order. For example, a
+ * store that uses a custom checkout pane to find out a customer's desired
+ * delivery date would then create a corresponding order pane to show the data
+ * on the order screens.
  *
- * hook_order_pane() works by defining new order panes and providing a little bit
- * of information about them. View the return value section below for information
- * about what parts of an order pane are defined by the hook.
+ * hook_uc_order_pane() works by defining new order panes and providing a little
+ * bit of information about them. View the return value section below for
+ * information about what parts of an order pane are defined by the hook.
  *
- * The real meat of an order pane is its callback function (which is specified in
- * the hook). The callback function handles what gets displayed on which screen
- * and what data can be manipulated. That is all somewhat out of the scope of
- * this API page, so you'll have to click here to read more about what a callback
- * function should contain.
+ * The real meat of an order pane is its callback function (which is specified
+ * in the hook). The callback function handles what gets displayed on which
+ * screen and what data can be manipulated. That is all somewhat out of the
+ * scope of this API page, so you'll have to click here to read more about what
+ * a callback function should contain.
  *
  * @return
- *   An array of order pane arrays, keyed by the internal ID of the pane, with the
- *   following members:
+ *   An array of order pane arrays, keyed by the internal ID of the pane, with
+ *   the following members:
  *   - callback:
  *     - type: string
- *     - value: The name of the callback function for this pane.  View
- *       @link http://www.ubercart.org/docs/developer/245/checkout this page @endlink
- *       for more documentation and examples of checkout pane callbacks.
+ *     - value: The name of the callback function for this pane.
  *   - title:
  *     - type: string
- *     - value: The name of the pane as it appears on the order admin form.
+ *     - value: The name of the pane.
+ *   - (optional) display title:
+ *     - type: string
+ *     - value: The title of the pane as it will be displayed.
  *   - desc:
  *     - type: string
  *     - value: A short description of the pane for the admin pages.
@@ -272,11 +276,15 @@ function hook_uc_order_actions($order) {
  *       "abs-left" to start a new line of panes.
  *   - weight:
  *     - type: integer
- *     - value: Default weight of the pane, defining its order on the checkout form.
+ *     - value: Default weight of the pane, defining its order on the checkout
+ *       form.
  *   - show:
  *     - type: array
  *     - value: The list of op values which will show the pane. "view", "edit",
  *       "invoice", and "customer" are possible values.
+ *
+ * @see uc_order_pane_callback()
+ * @see http://www.ubercart.org/docs/developer/245/checkout
  */
 function hook_uc_order_pane() {
   $panes['admin_comments'] = array(
@@ -304,35 +312,29 @@ function hook_uc_order_pane_alter(&$panes) {
 /**
  * Builds and processes an order pane defined by hook_uc_order_pane().
  *
- * @param string $op
+ * @param $op
  *   The operation the pane is performing. Possible values are "view",
- *   "customer", "show-title", "edit-form", "edit-title", "edit-theme",
- *   "edit-process", "edit-ops", and any of the strings returned when $op
- *   is "edit-ops".
- * @param UcOrder $order
+ *   "customer", "edit-form", "edit-theme" or "edit-process".
+ * @param $order
  *   The order being viewed or edited.
- * @param array $form
+ * @param $form
  *   The order's edit form. NULL for non-edit ops.
- * @param array &$form_state
+ * @param &$form_state
  *   The form state array of the edit form. NULL for non-edit ops.
+ *
  * @return
  *   Varies according to the value of $op:
  *   - view: A render array showing admin-visible order data.
  *   - customer: A render array showing customer-visible order data.
- *   - show-title: A boolean flag indicating that the title of the pane should
- *     be shown during the "view" and "customer" ops. Defaults to TRUE.
  *   - edit-form: $form with the pane grafted in.
- *   - edit-title: HTML to serve as the pane's title on the edit form.
  *   - edit-theme: The rendered portion of the $form that the pane added.
  *   - edit-process: An array of values to be modified on the order object,
  *     keyed by the object's property, or NULL to signify no change on the order
  *     object.
- *   - edit-ops: An array of possible $op values that this pane may use to do
- *     alternate processing on the edit form.
- *   - edit-ops values: No return value expected.
  */
 function uc_order_pane_callback($op, $order, &$form = NULL, &$form_state = NULL) {
-  // uc_order_pane_admin_comments()
+  global $user;
+
   switch ($op) {
     case 'view':
       $comments = uc_order_comments_load($order->order_id, TRUE);
@@ -355,7 +357,7 @@ function uc_order_pane_callback($op, $order, &$form = NULL, &$form_state = NULL)
       $comments = uc_order_comments_load($form['order_id']['#value'], TRUE);
       if (is_array($comments) && count($comments) > 0) {
         foreach ($comments as $comment) {
-          $items[] = '[' . uc_get_initials($comment->uid) . '] ' . filter_xss_admin($comment->message);
+          $items[] = '[' . theme('uc_uid', array('uid' => $comment->uid)) . '] ' . filter_xss_admin($comment->message);
         }
       }
       else {
@@ -365,8 +367,7 @@ function uc_order_pane_callback($op, $order, &$form = NULL, &$form_state = NULL)
       return $output;
 
     case 'edit-process':
-      if (!is_null($order['admin_comment']) && strlen(trim($order['admin_comment'])) > 0) {
-        global $user;
+      if (!empty($order['admin_comment'])) {
         uc_order_comment_save($order['order_id'], $user->uid, $order['admin_comment']);
       }
       return;
@@ -380,14 +381,13 @@ function uc_order_pane_callback($op, $order, &$form = NULL, &$form_state = NULL)
  *   The product object as found in the $order object.
  * @param $order
  *   The order object to which the product belongs.
+ *
  * @return
  *   Nothing should be returned. Hook implementations should receive the
  *   $product object by reference and alter it directly.
  */
 function hook_uc_order_product_alter(&$product, $order) {
-  drupal_set_message('hook_order_product_alter(&$product, $order):');
-  drupal_set_message('&$product: <pre>' . print_r($product, TRUE) . '</pre>');
-  drupal_set_message('$order: <pre>' . print_r($order, TRUE) . '</pre>');
+  $product->model = 'SKU';
 }
 
 /**
@@ -397,6 +397,34 @@ function hook_uc_order_product_delete($order_product_id) {
   // Put back the stock.
   $product = db_query("SELECT model, qty FROM {uc_order_products} WHERE order_product_id = :id", array(':id' => $order_product_id))->fetchObject();
   uc_stock_adjust($product->model, $product->qty);
+}
+
+/**
+ * Allow modules to specify whether a product is shippable.
+ *
+ * @param $product
+ *   The product to check.  May be a cart item or an order product.
+ * @return
+ *   TRUE to specify that this product is shippable.
+ */
+function hook_uc_order_product_can_ship($product) {
+  $roles = db_query("SELECT * FROM {uc_roles_products} WHERE nid = :nid", array(':nid' => $item->nid));
+  foreach ($roles as $role) {
+    // If the model is empty, keep looking. (Everyone needs a role model...)
+    if (empty($role->model)) {
+      continue;
+    }
+
+    // If there's an adjusted SKU, use it... otherwise use the node SKU.
+    $sku = (empty($item->data['model'])) ? $item->model : $item->data['model'];
+
+    // Keep looking if it doesn't match.
+    if ($sku != $role->model) {
+      continue;
+    }
+
+    return $role->shippable;
+  }
 }
 
 /**

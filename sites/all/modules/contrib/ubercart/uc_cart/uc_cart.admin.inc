@@ -12,17 +12,21 @@
  * @ingroup forms
  */
 function uc_cart_cart_settings_form($form, &$form_state) {
-  $form['cart-settings'] = array('#type' => 'vertical_tabs');
 
-  $form['general'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Basic settings'),
-    '#group' => 'cart-settings',
+  // Put fieldsets into vertical tabs
+  $form['cart-settings'] = array(
+    '#type' => 'vertical_tabs',
     '#attached' => array(
       'js' => array(
         'vertical-tabs' => drupal_get_path('module', 'uc_cart') . '/uc_cart.admin.js',
       ),
     ),
+  );
+
+  $form['general'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Basic settings'),
+    '#group' => 'cart-settings',
   );
 
   $panes = uc_cart_cart_pane_list(NULL);
@@ -34,7 +38,7 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   foreach ($panes as $id => $pane) {
     $form['general']['panes'][$id]['uc_cap_' . $id . '_enabled'] = array(
       '#type' => 'checkbox',
-      '#title' => $pane['title'],
+      '#title' => check_plain($pane['title']),
       '#default_value' => $pane['enabled'],
     );
     $form['general']['panes'][$id]['uc_cap_' . $id . '_weight'] = array(
@@ -60,13 +64,10 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   );
 
   $form['general']['uc_minimum_subtotal'] = array(
-    '#type' => 'textfield',
+    '#type' => 'uc_price',
     '#title' => t('Minimum order subtotal'),
     '#description' => t('Customers will not be allowed to check out if the subtotal of items in their cart is less than this amount.'),
     '#default_value' => variable_get('uc_minimum_subtotal', 0),
-    '#size' => 16,
-    '#field_prefix' => variable_get('uc_sign_after_amount', FALSE) ? '' : variable_get('uc_currency_sign', '$'),
-    '#field_suffix' => variable_get('uc_sign_after_amount', FALSE) ? variable_get('uc_currency_sign', '$') : '',
   );
 
   $form['lifetime'] = array(
@@ -96,14 +97,13 @@ function uc_cart_cart_settings_form($form, &$form_state) {
   $form['lifetime']['anonymous'] = array(
     '#type' => 'fieldset',
     '#title' => t('Anonymous users'),
+    '#attributes' => array('class' => array('uc-inline-form', 'clearfix')),
   );
   $form['lifetime']['anonymous']['uc_cart_anon_duration'] = array(
     '#type' => 'select',
     '#title' => t('Duration'),
     '#options' => drupal_map_assoc(range(1, 60)),
     '#default_value' => variable_get('uc_cart_anon_duration', '4'),
-    '#prefix' => '<div style="float: left; margin-right: 1em; padding-top: 0;">',
-    '#suffix' => '</div>',
   );
   $form['lifetime']['anonymous']['uc_cart_anon_unit'] = array(
     '#type' => 'select',
@@ -116,21 +116,18 @@ function uc_cart_cart_settings_form($form, &$form_state) {
       'years' => t('Year(s)'),
     ),
     '#default_value' => variable_get('uc_cart_anon_unit', 'hours'),
-    '#prefix' => '<div style="float: left; margin-right: 1em;">',
-    '#suffix' => '</div>',
   );
 
   $form['lifetime']['authenticated'] = array(
     '#type' => 'fieldset',
     '#title' => t('Authenticated users'),
+    '#attributes' => array('class' => array('uc-inline-form', 'clearfix')),
   );
   $form['lifetime']['authenticated']['uc_cart_auth_duration'] = array(
     '#type' => 'select',
     '#title' => t('Duration'),
     '#options' => drupal_map_assoc(range(1, 60)),
     '#default_value' => variable_get('uc_cart_auth_duration', '1'),
-    '#prefix' => '<div style="float: left; margin-right: 1em; padding-top: 0;">',
-    '#suffix' => '</div>',
   );
   $form['lifetime']['authenticated']['uc_cart_auth_unit'] = array(
     '#type' => 'select',
@@ -142,8 +139,6 @@ function uc_cart_cart_settings_form($form, &$form_state) {
       'years' => t('Year(s)'),
     ),
     '#default_value' => variable_get('uc_cart_auth_unit', 'years'),
-    '#prefix' => '<div style="float: left; margin-right: 1em;">',
-    '#suffix' => '</div>',
   );
 
   $form['continue_shopping'] = array(
@@ -222,6 +217,8 @@ function uc_cart_cart_settings_form_validate($form, &$form_state) {
  * @ingroup forms
  */
 function uc_cart_checkout_settings_form($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
   $form['checkout-settings'] = array(
     '#type' => 'vertical_tabs',
     '#attached' => array(
@@ -309,7 +306,7 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
   foreach ($panes as $id => $pane) {
     $form['checkout']['panes'][$id]['uc_pane_' . $id . '_enabled'] = array(
       '#type' => 'checkbox',
-      '#title' => $pane['title'],
+      '#title' => check_plain($pane['title']),
       '#default_value' => variable_get('uc_pane_' . $id . '_enabled', $pane['enabled']),
     );
     $form['checkout']['panes'][$id]['uc_pane_' . $id . '_weight'] = array(
@@ -324,7 +321,7 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     if (is_array($pane_settings)) {
       $form['pane_' . $id] = $pane_settings + array(
         '#type' => 'fieldset',
-        '#title' => t('!pane pane', array('!pane' => $pane['title'])),
+        '#title' => t('@pane pane', array('@pane' => $pane['title'])),
         '#group' => 'checkout-settings',
       );
     }
@@ -351,20 +348,6 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
       ),
     ),
   );
-
-  if (!module_exists('rules')) {
-    $form['checkout']['uc_checkout_email_customer'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Send e-mail invoice to customer after checkout.'),
-      '#default_value' => variable_get('uc_checkout_email_customer', TRUE),
-    );
-    $form['checkout']['uc_checkout_email_admin'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Send e-mail order notification to admin after checkout.'),
-      '#description' => t('Install <a href="!url">Rules</a> for more control over notifications.', array('!url' => 'http://drupal.org/project/rules')),
-      '#default_value' => variable_get('uc_checkout_email_admin', TRUE),
-    );
-  }
 
   $form['instructions'] = array(
     '#type' => 'fieldset',
@@ -426,6 +409,14 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     '#title' => t('New users'),
     '#description' => t("Message displayed upon checkout for a new user whose account was just created. You may use the special tokens !new_username for the username of a newly created account and !new_password for that account's password."),
     '#default_value' => variable_get('uc_msg_order_new_user', uc_get_message('completion_new_user')),
+    '#rows' => 3,
+    '#states' => $anon_state,
+  );
+  $form['completion_messages']['uc_msg_order_new_user_logged_in'] = array(
+    '#type' => 'textarea',
+    '#title' => t('New logged in users'),
+    '#description' => t('Message displayed upon checkout for a new user whose account was just created and also <em>"Login users when new customer accounts are created at checkout."</em> is set on the <a href="!user_login_setting_ur">checkout settings</a>.', array('!user_login_setting_ur' => 'admin/store/settings/checkout')),
+    '#default_value' => variable_get('uc_msg_order_new_user_logged_in', uc_get_message('completion_new_user_logged_in')),
     '#rows' => 3,
     '#states' => $anon_state,
   );

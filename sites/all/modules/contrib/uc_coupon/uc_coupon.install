@@ -147,6 +147,7 @@ function uc_coupon_uninstall() {
   variable_del('uc_coupon_line_item_weight');
   variable_del('uc_coupon_form_components');
   variable_del('uc_coupon_allow_multiple');
+  variable_del('uc_coupon_used_order_status');
 }
 
 

@@ -71,7 +71,7 @@ function uc_coupon_workflow_rules_action_info() {
   
   // Assign a coupon to a user.
   $actions['uc_coupon_workflow_assign'] = array(
-    'label' =>  t('Assign a coupon to a user.'),
+    'label' =>  t('Authorize a user to use a coupon.'),
     'group' => t('Coupon'),
     'provides' => array(
       'coupon' => array(
@@ -83,14 +83,13 @@ function uc_coupon_workflow_rules_action_info() {
       'account' => array(
         'type' => 'user',
         'label' => t('Account'),    
-        'description' => t('Select the user account to which this coupon should be assigned.'),
+        'description' => t('Select the user account you wish to authorize.'),
       ), 
       'cid' => array(
         'type' => 'integer',
         'label' => t('Coupon'),
         'description' => t('Select the base coupon to be assigned. 
-            The new user will be added to the user restrictions for the selected coupon, 
-            and the code will be sent to them by email.'),
+            The new user will be added to the list of authorized users for the selected coupon.'), 
         'options list' => 'uc_coupon_workflow_cid_options',
         'restriction' => 'input',
       ),
@@ -199,7 +198,7 @@ function uc_coupon_workflow_message_formats() {
  */
 function uc_coupon_workflow_suspended($settings) {
   $auth = drupal_static('uc_coupon_workflow_suspended');
-  return isset($auth) && $auth ? TRUE : FALSE; 
+  return !empty($auth);
 }
 
 

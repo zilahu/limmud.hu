@@ -16,10 +16,6 @@
  */
 
 
-/*******************************************************************************
- * Hook Functions (Drupal)
- ******************************************************************************/
-
 /**
  * Implements hook_menu().
  */
@@ -66,7 +62,7 @@ function uc_paypal_menu() {
     'file' => 'uc_paypal.pages.inc',
   );
   $items['uc_paypal/wps/cancel'] = array(
-    'title' => 'PayPal payment cancelled',
+    'title' => 'PayPal payment canceled',
     'page callback' => 'uc_paypal_cancel',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
@@ -102,28 +98,6 @@ function uc_paypal_form_uc_cart_checkout_review_form_alter(&$form, &$form_state,
   }
 }
 
-
-/*******************************************************************************
- * Hook Functions (Ubercart)
- ******************************************************************************/
-
-/**
- * Implements hook_uc_cart_pane().
- */
-function uc_paypal_uc_cart_pane() {
-  $panes['uc_paypal_ec'] = array(
-    'title' => t('PayPal Express Checkout'),
-    'enabled' => FALSE,
-    'weight' => 1,
-    'body' => drupal_get_form('uc_paypal_ec_form') + array(
-      '#prefix' => '<div align="right">',
-      '#suffix' => '</div>',
-    ),
-  );
-
-  return $panes;
-}
-
 /**
  * Implements hook_uc_payment_gateway().
  */
@@ -148,16 +122,17 @@ function uc_paypal_uc_payment_gateway() {
  * Implements hook_uc_payment_method().
  */
 function uc_paypal_uc_payment_method() {
-  $path = base_path() . drupal_get_path('module', 'uc_credit');
-  $title1 = '<img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" style="position: relative; top: 5px; margin-right: 4px;" />'
-         . t('PayPal - pay without sharing your financial information.');
-  $title2 = '<br /><span id="paypal-includes" style="padding-left: 5.5em;">'
-          . t('<b>Includes:</b>');
+  $title1 = '<img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" class="uc-credit-cctype" />'
+         . ' ' . t('PayPal - pay without sharing your financial information.');
+  $title2 = '<br /><span id="paypal-includes">' . t('Includes:');
   $cc_types = array('visa', 'mastercard', 'discover', 'amex', 'echeck');
   foreach ($cc_types as $type) {
-    $title2 .= ' <img src="' . $path . '/images/' . $type . '.gif" style="position: relative; top: 5px;" />';
+    $title2 .= ' ' . theme('image', array(
+      'path' => drupal_get_path('module', 'uc_credit') . '/images/' . $type . '.gif',
+      'attributes' => array('class' => array('uc-credit-cctype', 'uc-credit-cctype-' . $type)),
+    ));
   }
-  $title2 .= ' <img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" style="position: relative; top: 5px; margin-right: 4px;" /></span>';
+  $title2 .= ' <img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" class="uc-credit-cctype" /></span>';
 
   $methods[] = array(
     'id' => 'paypal_wps',
@@ -182,99 +157,21 @@ function uc_paypal_uc_payment_method() {
     'weight' => 1,
     'checkout' => FALSE,
     'no_gateway' => TRUE,
+    'express' => 'uc_paypal_ec_form',
   );
 
   return $methods;
 }
 
-
-/*******************************************************************************
- * Callback Functions, Forms, and Tables
- ******************************************************************************/
-
 /**
- * Settings for Website Payments Pro on the Payment gateways form.
+ * Settings for Website Payments Pro on the credit card gateways form.
+ *
+ * This provides a subset of the Express Checkout settings.
  */
 function uc_paypal_wpp_settings_form($form, &$form_state) {
-  // The DoDirectPayment API call allows fewer currencies than PayPal in general.
-  $form['paypal_wpp']['uc_paypal_wpp_currency'] = array(
-    '#type' => 'select',
-    '#title' => t('Currency code'),
-    '#description' => t('Transactions can only be processed in one of the listed currencies.'),
-    '#options' => _uc_paypal_currency_array(),
-    '#default_value' => variable_get('uc_paypal_wpp_currency', 'USD'),
-  );
-  $form['paypal_wpp']['uc_paypal_wpp_server'] = array(
-    '#type' => 'select',
-    '#title' => t('API server'),
-    '#description' => t('Sign up for and use a Sandbox account for testing.'),
-    '#options' => array(
-      'https://api-3t.sandbox.paypal.com/nvp' => t('Sandbox'),
-      'https://api-3t.paypal.com/nvp' => t('Live'),
-    ),
-    '#default_value' => variable_get('uc_paypal_wpp_server', 'https://api-3t.sandbox.paypal.com/nvp'),
-  );
-  $form['paypal_wpp']['ec'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Express Checkout'),
-    '#description' => t('These settings are specifically for the alternate checkout system offered by Express Checkout.<br />To enable this on your site, you must enable the corresponding cart pane in the <em>Cart settings</em> menu.'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_wps_email'] = array(
-    '#type' => 'textfield',
-    '#title' => t('PayPal e-mail address'),
-    '#description' => t('The e-mail address you use for the PayPal account you want to receive payments.'),
-    '#default_value' => variable_get('uc_paypal_wps_email', ''),
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_ec_rqconfirmed_addr'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Require Express Checkout users to use a PayPal confirmed shipping address.'),
-    '#default_value' => variable_get('uc_paypal_ec_rqconfirmed_addr', FALSE),
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_ec_review_shipping'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable the shipping select form on the Review payment page.'),
-    '#default_value' => variable_get('uc_paypal_ec_review_shipping', TRUE),
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_ec_review_company'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable the company name box on the Review payment page.'),
-    '#default_value' => variable_get('uc_paypal_ec_review_company', TRUE),
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_ec_review_phone'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable the contact phone number box on the Review payment page.'),
-    '#default_value' => variable_get('uc_paypal_ec_review_phone', TRUE),
-  );
-  $form['paypal_wpp']['ec']['uc_paypal_ec_review_comment'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable the comment text box on the Review payment page.'),
-    '#default_value' => variable_get('uc_paypal_ec_review_comment', TRUE),
-  );
-  $form['paypal_wpp']['api'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('API credentials'),
-    '#description' => t('!link for information on obtaining credentials.  You need to acquire an API Signature.  If you have already requested API credentials, you can review your settings under the API Access section of your PayPal profile.', array('!link' => l(t('Click here'), 'https://www.paypal.com/IntegrationCenter/ic_certificate.html'))),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $form['paypal_wpp']['api']['uc_paypal_api_username'] = array(
-    '#type' => 'textfield',
-    '#title' => t('API username'),
-    '#default_value' => variable_get('uc_paypal_api_username', ''),
-  );
-  $form['paypal_wpp']['api']['uc_paypal_api_password'] = array(
-    '#type' => 'textfield',
-    '#title' => t('API password'),
-    '#default_value' => variable_get('uc_paypal_api_password', ''),
-  );
-  $form['paypal_wpp']['api']['uc_paypal_api_signature'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Signature'),
-    '#default_value' => variable_get('uc_paypal_api_signature', ''),
-  );
-
+  $order = NULL;
+  $form = uc_payment_method_paypal_ec('settings', $order);
+  unset($form['ec']);
   return $form;
 }
 
@@ -399,7 +296,7 @@ function uc_paypal_wpp_charge($order_id, $amount, $data) {
         WATCHDOG_WARNING,
         l(t('view order'), 'admin/store/orders/' . $order_id)
       );
-      // fall through
+      // Fall through.
     case 'Success':
       $message = t('<b>@type</b><br /><b>Success: </b>@amount @currency', array('@type' => $types[$data['txn_type']], '@amount' => uc_currency_format($nvp_response['AMT'], FALSE), '@currency' => $nvp_response['CURRENCYCODE']));
       if ($data['txn_type'] != UC_CREDIT_PRIOR_AUTH_CAPTURE) {
@@ -440,15 +337,9 @@ function uc_paypal_wpp_charge($order_id, $amount, $data) {
 
       break;
     case 'FailureWithWarning':
-      // fall through
+      // Fall through.
     case 'Failure':
       $message = t('<b>@type failed.</b>', array('@type' => $types[$data['txn_type']])) . _uc_paypal_build_error_messages($nvp_response);
-      if ($data['txn_type'] != UC_CREDIT_PRIOR_AUTH_CAPTURE) {
-        $message .= '<br />' . t('<b>Address:</b> @avscode', array('@avscode' => _uc_paypal_avscode_message($nvp_response['AVSCODE'])));
-        if (variable_get('uc_credit_cvv_enabled', TRUE)) {
-          $message .= '<br />' . t('<b>CVV2:</b> @cvvmatch', array('@cvvmatch' => _uc_paypal_cvvmatch_message($nvp_response['CVV2MATCH'])));
-        }
-      }
       $result = array(
         'success' => FALSE,
         'message' => $message,
@@ -559,7 +450,6 @@ function uc_payment_method_paypal_wps($op, &$order) {
       $form['uc_paypal_wps_submit_method'] = array(
         '#type' => 'radios',
         '#title' => t('PayPal cart submission method'),
-        '#description' => t('You must use a single line item on your site if you have any fees or discounts besides shipping and tax.'),
         '#options' => array(
           'single' => t('Submit the whole order as a single line item.'),
           'itemized' => t('Submit an itemized order showing each product and description.'),
@@ -616,18 +506,86 @@ function uc_payment_method_paypal_ec($op, &$order) {
       return $build;
 
     case 'settings':
-      $form['redirect'] = array(
-        '#markup' => '<div>' . t('For Express Checkout, you need to <a href="!cp_link">enable the cart pane</a> and <a href="!wpp_link">configure the Website Payments Pro settings</a>.', array('!cp_link' => url('admin/store/settings/cart/panes'), '!wpp_link' => url('admin/store/settings/payment/method/credit'))) . '</div>',
+      $form['uc_paypal_wps_email'] = array(
+        '#type' => 'textfield',
+        '#title' => t('PayPal e-mail address'),
+        '#description' => t('The e-mail address you use for the PayPal account you want to receive payments.'),
+        '#default_value' => variable_get('uc_paypal_wps_email', ''),
       );
-      $form['uc_paypal_ec_landingpage_style'] = array(
-        '#type' => 'radios',
-        '#title' => t('PayPal landing page style'),
-        '#description' => t('PayPal Express Checkout landing page may show a credit card submission form (allowing credit card payments without a PayPal account) or may show only a PayPal login form, thereby restricting payment to PayPal users.'),
+      // The DoDirectPayment API call allows fewer currencies than PayPal
+      // in general.
+      $form['uc_paypal_wpp_currency'] = array(
+        '#type' => 'select',
+        '#title' => t('Currency code'),
+        '#description' => t('Transactions can only be processed in one of the listed currencies.'),
+        '#options' => _uc_paypal_currency_array(),
+        '#default_value' => variable_get('uc_paypal_wpp_currency', 'USD'),
+      );
+      $form['uc_paypal_wpp_server'] = array(
+        '#type' => 'select',
+        '#title' => t('API server'),
+        '#description' => t('Sign up for and use a Sandbox account for testing.'),
         '#options' => array(
-          'Billing' => t('Show credit card submission form.'),
-          'Login' => t('Do not show credit card submission form.'),
+          'https://api-3t.sandbox.paypal.com/nvp' => t('Sandbox'),
+          'https://api-3t.paypal.com/nvp' => t('Live'),
+        ),
+        '#default_value' => variable_get('uc_paypal_wpp_server', 'https://api-3t.sandbox.paypal.com/nvp'),
+      );
+      $form['api'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('API credentials'),
+        '#description' => t('!link for information on obtaining credentials.  You need to acquire an API Signature.  If you have already requested API credentials, you can review your settings under the API Access section of your PayPal profile.', array('!link' => l(t('Click here'), 'https://www.paypal.com/IntegrationCenter/ic_certificate.html'))),
+        '#collapsible' => TRUE,
+        '#collapsed' => variable_get('uc_paypal_api_username', '') != '',
+      );
+      $form['api']['uc_paypal_api_username'] = array(
+        '#type' => 'textfield',
+        '#title' => t('API username'),
+        '#default_value' => variable_get('uc_paypal_api_username', ''),
+      );
+      $form['api']['uc_paypal_api_password'] = array(
+        '#type' => 'textfield',
+        '#title' => t('API password'),
+        '#default_value' => variable_get('uc_paypal_api_password', ''),
+      );
+      $form['api']['uc_paypal_api_signature'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Signature'),
+        '#default_value' => variable_get('uc_paypal_api_signature', ''),
+      );
+      $form['ec']['uc_paypal_ec_landingpage_style'] = array(
+        '#type' => 'radios',
+        '#title' => t('Default PayPal landing page'),
+        '#options' => array(
+          'Billing' => t('Credit card submission form.'),
+          'Login' => t('Account login form.'),
         ),
         '#default_value' => variable_get('uc_paypal_ec_landingpage_style', 'Billing'),
+      );
+      $form['ec']['uc_paypal_ec_rqconfirmed_addr'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Require Express Checkout users to use a PayPal confirmed shipping address.'),
+        '#default_value' => variable_get('uc_paypal_ec_rqconfirmed_addr', FALSE),
+      );
+      $form['ec']['uc_paypal_ec_review_shipping'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable the shipping select form on the Review payment page.'),
+        '#default_value' => variable_get('uc_paypal_ec_review_shipping', TRUE),
+      );
+      $form['ec']['uc_paypal_ec_review_company'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable the company name box on the Review payment page.'),
+        '#default_value' => variable_get('uc_paypal_ec_review_company', TRUE),
+      );
+      $form['ec']['uc_paypal_ec_review_phone'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable the contact phone number box on the Review payment page.'),
+        '#default_value' => variable_get('uc_paypal_ec_review_phone', TRUE),
+      );
+      $form['ec']['uc_paypal_ec_review_comment'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable the comment text box on the Review payment page.'),
+        '#default_value' => variable_get('uc_paypal_ec_review_comment', TRUE),
       );
       return $form;
   }
@@ -685,7 +643,7 @@ function uc_paypal_ec_checkout($form, &$form_state) {
     'LANDINGPAGE' => variable_get('uc_paypal_ec_landingpage_style', 'Billing'),
   );
 
-  if (!uc_cart_is_shippable()) {
+  if (!uc_order_is_shippable($order)) {
     $nvp_request['NOSHIPPING'] = 1;
     unset($nvp_request['ADDROVERRIDE']);
   }
@@ -713,14 +671,12 @@ function uc_paypal_ec_checkout($form, &$form_state) {
  * @see uc_paypal_ec_form_submit()
  */
 function uc_paypal_ec_form($form, &$form_state) {
-  if (!variable_get('uc_cap_uc_paypal_ec_enabled', FALSE)) {
-    return;
-  }
-
-  $form['submit'] = array(
+  $form['uc_paypal'] = array(
     '#type' => 'image_button',
+    '#button_type' => 'checkout',
     '#src' => 'https://www.paypal.com/en_US/i/btn/btn_xpressCheckoutsm.gif',
     '#title' => t('Checkout with PayPal.'),
+    '#submit' => array('uc_cart_view_form_submit', 'uc_paypal_ec_form_submit'),
   );
 
   return $form;
@@ -763,6 +719,11 @@ function uc_paypal_ec_form_submit($form, &$form_state) {
   uc_order_save($order);
 
   $nvp_response = uc_paypal_api_request($nvp_request, variable_get('uc_paypal_wpp_server', 'https://api-3t.sandbox.paypal.com/nvp'));
+
+  if ($nvp_response['ACK'] != 'Success') {
+    drupal_set_message(t('PayPal reported an error: @code: @message', array('@code' => $nvp_response['L_ERRORCODE0'], '@message' => $nvp_response['L_LONGMESSAGE0'])), 'error');
+    return;
+  }
 
   $_SESSION['cart_order'] = $order->order_id;
   $_SESSION['TOKEN'] = $nvp_response['TOKEN'];
@@ -828,7 +789,7 @@ function uc_paypal_ec_submit_form_submit($form, &$form_state) {
   $nvp_response = uc_paypal_api_request($nvp_request, variable_get('uc_paypal_wpp_server', 'https://api-3t.sandbox.paypal.com/nvp'));
 
   unset($_SESSION['TOKEN'], $_SESSION['PAYERID']);
-  $_SESSION['do_complete'] = TRUE;
+  $_SESSION['uc_checkout'][$_SESSION['cart_order']]['do_complete'] = TRUE;
 
   $form_state['redirect'] = 'cart/checkout/complete';
 }
@@ -885,35 +846,35 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
   }
 
   $data = array(
-    // PayPal command variable
+    // PayPal command variable.
     'cmd' => '_cart',
 
-    // Set the correct codepage
+    // Set the correct codepage.
     'charset' => 'utf-8',
 
-    // IPN control notify URL
+    // IPN control notify URL.
     'notify_url' => url('uc_paypal/ipn/' . $order->order_id, array('absolute' => TRUE)),
 
-    // Display information
+    // Display information.
     'cancel_return' => url('uc_paypal/wps/cancel', array('absolute' => TRUE)),
     'no_note' => 1,
     'no_shipping' => variable_get('uc_paypal_wps_no_shipping', 1),
     'return' => url('uc_paypal/wps/complete/' . $order->order_id, array('absolute' => TRUE)),
     'rm' => 2,
 
-    // Transaction information
+    // Transaction information.
     'currency_code' => variable_get('uc_paypal_wps_currency', 'USD'),
     'handling_cart' => uc_currency_format($shipping, FALSE, FALSE, '.'),
     'invoice' => $order->order_id . '-' . uc_cart_get_id(),
     'tax_cart' => uc_currency_format($tax, FALSE, FALSE, '.'),
 
-    // Shopping cart specific variables
-    'business' => variable_get('uc_paypal_wps_email', ''),
+    // Shopping cart specific variables.
+    'business' => trim(variable_get('uc_paypal_wps_email', '')),
     'upload' => 1,
 
     'lc' => variable_get('uc_paypal_wps_language', 'US'),
 
-    // Prepopulating forms/address overriding
+    // Prepopulating forms/address overriding.
     'address1' => substr($order->{$address . '_street1'}, 0, 100),
     'address2' => substr($order->{$address . '_street2'}, 0, 100),
     'city' => substr($order->{$address . '_city'}, 0, 40),
@@ -938,7 +899,7 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
   }
 
   if (variable_get('uc_paypal_wps_submit_method', 'single') == 'itemized') {
-    // List individual items
+    // List individual items.
     $i = 0;
     foreach ($order->products as $item) {
       $i++;
@@ -958,7 +919,8 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
       }
     }
 
-    // Apply discounts (negative amount line items). For example, this handles line items created by uc_coupon.
+    // Apply discounts (negative amount line items). For example, this handles
+    // line items created by uc_coupon.
     $discount = 0;
 
     foreach ($order->line_items as $item) {
@@ -973,9 +935,9 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
     }
   }
   else {
-    // List the whole cart as a single item to account for fees/discounts
+    // List the whole cart as a single item to account for fees/discounts.
     $data['amount_1'] = uc_currency_format($order->order_total - $shipping - $tax, FALSE, FALSE, '.');
-    $data['item_name_1'] = t('Order @order_id at !store', array('@order_id' => $order->order_id, '!store' => variable_get('uc_store_name', url('<front>', array('absolute' => TRUE)))));
+    $data['item_name_1'] = t('Order @order_id at !store', array('@order_id' => $order->order_id, '!store' => uc_store_name()));
     $data['on0_1'] = t('Product count');
     $data['os0_1'] = count($order->products);
   }
@@ -1001,8 +963,8 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
  * Sends a request to PayPal and returns a response array.
  */
 function uc_paypal_api_request($request, $server) {
-  // We use $request += to add API credentials so that
-  // if a key already exists, it will not be overridden
+  // We use $request += to add API credentials so that if a key already exists,
+  // it will not be overridden.
   $request += array(
     'USER' => variable_get('uc_paypal_api_username', ''),
     'PWD' => variable_get('uc_paypal_api_password', ''),
@@ -1046,7 +1008,7 @@ function _uc_paypal_product_details($items) {
       if (!empty($desc)) {
         $desc .= ' / ';
       }
-      $desc .= $item->qty . '× ' . $item->title;
+      $desc .= $item->qty . 'x ' . $item->title;
       $subtotal += $item->qty * $item->price;
     }
   }
@@ -1100,7 +1062,6 @@ function _uc_paypal_avscode_message($code) {
         return t('The merchant did not provide AVS information. Not processed.');
       case '4':
         return t('Address not checked, or acquirer had no response. Service not available.');
-      case 'Null':
       default:
         return t('No AVS response was obtained.');
     }
@@ -1134,6 +1095,8 @@ function _uc_paypal_avscode_message($code) {
       return t('Service not supported');
     case 'U':
       return t('Unavailable');
+    case 'Null':
+      return t('No AVS response was obtained.');
     default:
       return t('An unknown error occurred.');
   }
@@ -1192,6 +1155,7 @@ function _uc_paypal_pending_message($reason) {
     case 'intl':
       return t('You must manually accept or deny this international payment from your Account Overview.');
     case 'multi-currency':
+    case 'multi_currency':
       return t('You must manually accept or deny a payment of this currency from your Account Overview.');
     case 'unilateral':
       return t('Your e-mail address is not yet registered or confirmed.');
@@ -1201,7 +1165,7 @@ function _uc_paypal_pending_message($reason) {
       return t('You must verify your account before you can accept this payment.');
     case 'other':
     default:
-      return t('Reason unknown; contact PayPal Customer Service for more information.');
+      return t('Reason "@reason" unknown; contact PayPal Customer Service for more information.', array('@reason' => $reason));
   }
 }
 
@@ -1220,7 +1184,7 @@ function _uc_paypal_reversal_message($reason) {
       return t('You gave the customer a refund.');
     case 'other':
     default:
-      return t('Reason unknown; contact PayPal Customer Service for more information.');
+      return t('Reason "@reason" unknown; contact PayPal Customer Service for more information.', array('@reason' => $reason));
   }
 }
 

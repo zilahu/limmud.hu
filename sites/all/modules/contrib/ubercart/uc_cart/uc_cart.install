@@ -18,8 +18,8 @@ function uc_cart_schema() {
         'description' => 'Unique identifier for cart item.',
         'type' => 'serial',
         'unsigned' => TRUE,
-        'not null' => TRUE),
-
+        'not null' => TRUE
+      ),
       'cart_id' => array(
         'description' => 'A user-specific cart ID. For authenticated users, their {users}.uid. For anonymous users, a token.',
         'type' => 'varchar',
@@ -37,7 +37,6 @@ function uc_cart_schema() {
       'qty' => array(
         'description' => 'The number of this product in the cart.',
         'type' => 'int',
-        'size' => 'small',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
@@ -96,7 +95,14 @@ function uc_cart_uninstall() {
 function uc_cart_update_last_removed() {
   // 7.x-3.0-beta2 and earlier were installed with schema version 0,
   // which causes update.php to fail.
-  return drupal_get_installed_schema_version('uc_cart') == 0 ? 0 : 6202;
+  return drupal_get_installed_schema_version('uc_cart') == 0 ? 0 : 6201;
+}
+
+/**
+ * Unify cart block title setting.
+ */
+function uc_cart_update_6202() {
+  variable_del('uc_cart_block_title');
 }
 
 /**
@@ -110,4 +116,17 @@ function uc_cart_update_7000() {
   variable_del('uc_msg_order_existing_user_format');
   variable_del('uc_msg_order_new_user_format');
   variable_del('uc_msg_continue_shopping_format');
+}
+
+/**
+ * Increase maximum cart item quantity.
+ */
+function uc_cart_update_7001() {
+  db_change_field('uc_cart_products', 'qty', 'qty', array(
+    'description' => 'The number of this product in the cart.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
 }

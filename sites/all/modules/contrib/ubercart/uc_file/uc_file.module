@@ -14,15 +14,11 @@
  */
 
 /**
- * The max amount of files shown on any page that displays files
- * in a table/pager.
+ * The maximum amount of rows shown in tables of file downloads.
  */
 define('UC_FILE_PAGER_SIZE', 50);
-define('UC_FILE_LIMIT_SENTINEL', -1);
 
-/******************************************************************************
- * Hook Functions (Drupal)                                                    *
- ******************************************************************************/
+define('UC_FILE_LIMIT_SENTINEL', -1);
 
 /**
  * Implements hook_form_FORM_ID_alter() for uc_product_feature_settings_form().
@@ -61,9 +57,9 @@ function uc_file_menu() {
     'type' => MENU_LOCAL_TASK,
     'file' => 'uc_file.pages.inc',
   );
-  $items['download/%/%'] = array(
+  $items['download/%'] = array(
     'page callback' => '_uc_file_download',
-    'page arguments' => array(1, 2),
+    'page arguments' => array(1),
     'access arguments' => array('download file'),
     'type' => MENU_CALLBACK,
     'file' => 'uc_file.pages.inc',
@@ -106,11 +102,9 @@ function uc_file_theme() {
       'render element' => 'form',
       'file' => 'uc_file.admin.inc',
     ),
-    'uc_file_hook_user_file' => array(
-      'render element' => 'form',
-    ),
     'uc_file_hook_user_file_downloads' => array(
       'render element' => 'form',
+      'file' => 'uc_file.theme.inc',
     ),
     'uc_file_user_downloads' => array(
       'variables' => array('header' => NULL, 'files' => NULL),
@@ -129,59 +123,33 @@ function uc_file_user_cancel($edit, $account, $method) {
 }
 
 /**
- * Implements hook_form_user_profile_form_alter().
+ * Form builder for per-user file download administration.
+ *
+ * @see uc_file_user_form_validate()
+ * @see uc_file_user_form_submit()
  */
-function uc_file_form_user_profile_form_alter(&$form, &$form_state) {
-  $account = $form_state['build_info']['args'][0];
-  if (isset($form_state['build_info']['args'][1])) {
-    $category = $form_state['build_info']['args'][1];
-  }
-  else {
-    // user_profile_form() has a default value for $category.
-    $category = 'account';
-  }
-
-  // We only want the account edit form.
-  if (!user_access('administer users') || (!is_null($category) && $category != 'account')) {
-    return;
-  }
-
-  // Rebuild the file list.
-  uc_file_refresh();
-
+function uc_file_user_form($form, &$form_state, $account) {
   $form['file'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Ubercart file downloads'),
+    '#title' => t('Administration'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
-    '#weight' => 10,
-    '#theme' => 'uc_file_hook_user_file',
   );
 
   // Drop out early if we don't even have any files uploaded.
-  if (!db_query("SELECT COUNT(*) FROM {uc_files}")->fetchField()) {
+  if (!db_query_range('SELECT 1 FROM {uc_files}', 0, 1)->fetchField()) {
     $form['file']['file_message'] = array(
-      '#markup' => t(
+      '#markup' => '<p>' . t(
         'You must add files at the <a href="!url">Ubercart file download administration page</a> in order to attach them to a user.',
         array('!url' => url('admin/store/products/files', array('query' => array('destination' => 'user/' . $account->uid . '/edit'))))
-      ),
+      ) . '</p>',
     );
 
     return $form;
   }
 
   // Table displaying current downloadable files and limits.
-  $form['file']['download'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Accessible downloads'),
-
-    '#collapsible' => FALSE,
-    '#collapsed' => FALSE,
-    '#weight' => 10,
-    '#theme' => 'uc_file_hook_user_file_downloads',
-  );
-
-  // Neatness.
+  $form['file']['download']['#theme'] = 'uc_file_hook_user_file_downloads';
   $form['file']['download']['file_download']['#tree'] = TRUE;
 
   $downloadable_files = array();
@@ -279,17 +247,21 @@ function uc_file_form_user_profile_form_alter(&$form, &$form_state) {
     );
   }
 
-  $form['#validate'][] = 'uc_file_user_validate';
+  $form['file']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
 
   return $form;
 }
 
 /**
- * User profile form validation handler.
+ * Validation handler for per-user file download administration.
  *
- * @see uc_file_form_user_profile_form_alter()
+ * @see uc_file_user_form()
+ * @see uc_file_user_form_submit()
  */
-function uc_file_user_validate($form, &$form_state) {
+function uc_file_user_form_validate($form, &$form_state) {
   $edit = $form_state['values'];
 
   // Determine if any downloads were modified.
@@ -330,9 +302,15 @@ function uc_file_user_validate($form, &$form_state) {
 }
 
 /**
- * Implements hook_user_presave().
+ * Submit handler for per-user file download administration.
+ *
+ * @see uc_file_user_form()
+ * @see uc_file_user_form_validate()
  */
-function uc_file_user_presave(&$edit, $account, $category) {
+function uc_file_user_form_submit($form, &$form_state) {
+  $account = $form_state['build_info']['args'][0];
+  $edit = $form_state['values'];
+
   // Check out if any downloads were modified.
   if (isset($edit['file_download'])) {
     foreach ((array)$edit['file_download'] as $fid => $download_modification) {
@@ -353,7 +331,7 @@ function uc_file_user_presave(&$edit, $account, $category) {
           continue;
         }
 
-        // Renew. (Explicit overwrite)
+        // Renew. (Explicit overwrite.)
         uc_file_user_renew($fid, $account, NULL, $download_modification, TRUE);
       }
     }
@@ -372,7 +350,7 @@ function uc_file_user_presave(&$edit, $account, $category) {
         'time_granularity' => variable_get('uc_file_download_limit_duration_granularity', 'never'),
       ), REQUEST_TIME);
 
-      // Renew. (Explicit overwrite)
+      // Renew. (Explicit overwrite.)
       uc_file_user_renew($fid, $account, NULL, $download_modification, TRUE);
     }
   }
@@ -385,7 +363,7 @@ function uc_file_user_view($account, $view_mode) {
   global $user;
 
   // If user has files and permission to view them, put a link
-  // on the user's profile
+  // on the user's profile.
   $existing_download = db_query("SELECT fid FROM {uc_file_users} WHERE uid = :uid", array(':uid' => $account->uid))->fetchField();
   if (!$existing_download || (!user_access('view all downloads') && $user->uid != $account->uid)) {
     return;
@@ -401,8 +379,7 @@ function uc_file_user_view($account, $view_mode) {
 }
 
 /**
- * Attaches jQuery behaviors for each of the rows on the file download
- * modification table.
+ * Attaches jQuery behaviors to the file download modification table.
  */
 function _uc_file_download_table_behavior($id, $fid) {
 
@@ -420,103 +397,6 @@ Drupal.behaviors.ucUserAccountFileDownload" . $id . " = {
 
 }
 
-
-/**
- * Themes the download table at the user account page.
- *
- * @ingroup themeable
- */
-function theme_uc_file_hook_user_file_downloads($variables) {
-  $form = $variables['form'];
-
-  $header = array(
-    array('data' => t('Remove'    )),
-    array('data' => t('Filename'  )),
-    array('data' => t('Expiration')),
-    array('data' => t('Downloads' )),
-    array('data' => t('Addresses' )),
-  );
-  $rows = array();
-  $output = '';
-
-  foreach (element_children($form['file_download']) as $key) {
-
-    if (!isset($form['file_download'][$key]['addresses_in'])) {
-      continue;
-    }
-
-    $file_download = &$form['file_download'][$key];
-
-    $rows[] = array(
-      'data' => array(
-        array('data' => drupal_render($file_download['remove'])),
-
-        array('data' => drupal_render($file_download['filename'])),
-
-        array(
-          'data' =>
-            drupal_render($file_download['expires']) . ' <br />' .
-
-            '<div class="duration">' .
-              drupal_render($file_download['time_polarity']) .
-              drupal_render($file_download['time_quantity']) .
-              drupal_render($file_download['time_granularity']) .
-            '</div>',
-        ),
-
-        array(
-          'data' =>
-            '<div class="download-table-index">' .
-              drupal_render($file_download['downloads_in']) . '/' . drupal_render($file_download['download_limit']) .
-            '</div>',
-        ),
-
-        array(
-          'data' =>
-            '<div class="download-table-index">' .
-              drupal_render($file_download['addresses_in']) . '/' . drupal_render($file_download['address_limit']) .
-            '</div>',
-        ),
-      ),
-      'class' => array('download-table-row'),
-    );
-  }
-
-  if (!count($rows)) {
-    $rows[] = array(array('data' => t('No files can be downloaded by this user.'), 'colspan' => 5));
-  }
-
-  $output .= theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'download-table'), 'caption' => t('Below is a list of downloads this user can access.')));
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
-/**
- * Themes the file dialog at the user account page.
- *
- * @ingroup themeable
- */
-function theme_uc_file_hook_user_file($variables) {
-  $form = $variables['form'];
-
-  // Enclose this in <p> so it won't fall out of the fieldset
-  // if there are no downloads.
-  $output = '<p>' . drupal_render($form['file_message']) . '</p>';
-
-  // Ensure the current files are above the new file dialog.
-  $output .= drupal_render($form['download']);
-
-  $output .= drupal_render_children($form);
-
-  return $output;
-}
-
-
-/******************************************************************************
- * Ubercart Hooks                                                             *
- ******************************************************************************/
-
 /**
  * Implements hook_uc_add_to_cart().
  *
@@ -532,7 +412,7 @@ function uc_file_uc_add_to_cart($nid, $qty, $data) {
 
   global $user;
 
-  // Get all the files on this product
+  // Get all the files on this product.
   $product_features = db_query("SELECT * FROM {uc_product_features} AS upf " .
     "INNER JOIN {uc_file_products} AS ufp ON upf.pfid = ufp.pfid " .
     "INNER JOIN {uc_files} AS uf ON ufp.fid = uf.fid " .
@@ -552,14 +432,14 @@ function uc_file_uc_add_to_cart($nid, $qty, $data) {
       $old_limits = $file_user;
 
       // Get the limits from the product feature.
-      // (Or global if it says pass through)
+      // (Or global if it says pass through.)
       $file_modification = array(
         'download_limit' => uc_file_get_download_limit($product_feature),
         'address_limit'  => uc_file_get_address_limit($product_feature),
-        'expiration'     => _uc_file_expiration_date(uc_file_get_time_limit($product_feature), $file_user['expiration']),
+        'expiration'     => _uc_file_expiration_date(uc_file_get_time_limit($product_feature), max($file_user['expiration'], REQUEST_TIME)),
       );
 
-      // Calculate the new limits
+      // Calculate the new limits.
       _uc_file_accumulate_limits($file_user, $file_modification, FALSE);
 
       // Don't allow the product to be purchased if it won't increase the
@@ -589,32 +469,24 @@ function uc_file_uc_add_to_cart($nid, $qty, $data) {
 }
 
 /**
- * Implements hook_uc_cart_item().
+ * Implements hook_uc_order_product_can_ship().
  */
-function uc_file_uc_cart_item($op, $item) {
+function uc_file_uc_order_product_can_ship($item) {
+  // Check if this model is shippable as well as a file.
+  $files = db_query("SELECT shippable, model FROM {uc_file_products} as fp INNER JOIN {uc_product_features} as pf ON pf.pfid = fp.pfid WHERE nid = :nid", array(':nid' => $item->nid));
+  foreach ($files as $file) {
 
-  switch ($op) {
-
-    case 'can_ship':
-
-      // Check if this model is shippable as well as a file (;/)
-      $files = db_query("SELECT shippable, model FROM {uc_file_products} as fp INNER JOIN {uc_product_features} as pf ON pf.pfid = fp.pfid WHERE nid = :nid", array(':nid' => $item->nid));
-      foreach ($files as $file) {
-
-        // If the model is 'any' then return.
-        if (empty($file->model)) {
-          return $file->shippable;
-        }
-        else {
-          // Use the adjusted SKU, or node SKU if there's none.
-          $sku = empty($item->data['model']) ? $item->model : $item->data['model'];
-          if ($sku == $file->model) {
-            return $file->shippable;
-          }
-        }
+    // If the model is 'any' then return.
+    if (empty($file->model)) {
+      return $file->shippable;
+    }
+    else {
+      // Use the adjusted SKU, or node SKU if there's none.
+      $sku = empty($item->data['model']) ? $item->model : $item->data['model'];
+      if ($sku == $file->model) {
+        return $file->shippable;
       }
-
-      break;
+    }
   }
 }
 
@@ -641,23 +513,19 @@ function uc_file_uc_store_status() {
   if (!is_dir(variable_get('uc_file_base_dir', NULL))) {
     $message[] = array(
       'status' => 'warning',
-      'title' => t('File Downloads'),
+      'title' => t('File downloads'),
       'desc' => t('The file downloads directory is not valid or set. Set a valid directory in the <a href="!url">product settings</a> under the file download settings tab.', array('!url' => url('admin/store/settings/products'))),
     );
   }
   else {
     $message[] = array(
       'status' => 'ok',
-      'title' => t('File Downloads'),
+      'title' => t('File downloads'),
       'desc' => t('The file downloads directory has been set and is working.'),
     );
   }
   return $message;
 }
-
-/******************************************************************************
- * Callback Functions, Forms, and Tables                                      *
- ******************************************************************************/
 
 /**
  * Product feature delete function.
@@ -669,7 +537,7 @@ function uc_file_feature_delete($feature) {
 }
 
 /**
- * Form builder for hook_product_feature.
+ * Form builder for hook_uc_product_feature.
  *
  * @see uc_file_feature_form_validate()
  * @see uc_file_feature_form_submit()
@@ -677,17 +545,17 @@ function uc_file_feature_delete($feature) {
  */
 function uc_file_feature_form($form, &$form_state, $node, $feature) {
   if (!is_dir(variable_get('uc_file_base_dir', NULL))) {
-    drupal_set_message(t('A file directory needs to be configured in <a href="!url">product settings</a> under the file download settings tab before a file can be selected.', array('!url' => url('admin/store/settings/products'))), 'error');
+    drupal_set_message(t('A file directory needs to be configured in <a href="@url">product settings</a> under the file download settings tab before a file can be selected.', array('@url' => url('admin/store/settings/products'))), 'error');
 
     unset($form['buttons']);
     return $form;
   }
 
-  if (!db_query("SELECT COUNT(*) FROM {uc_files}")->fetchField()) {
+  if (!db_query_range('SELECT 1 FROM {uc_files}', 0, 1)->fetchField()) {
     $form['file']['file_message'] = array(
       '#markup' => t(
-        'You must add files at the <a href="!url">Ubercart file download administration page</a> in order to attach them to a model.',
-        array('!url' => url('admin/store/products/files', array('query' => array('destination' => 'node/' . $node->nid . '/edit/features/file/add'))))
+        'You must add files at the <a href="@url">Ubercart file download administration page</a> in order to attach them to a model.',
+        array('@url' => url('admin/store/products/files', array('query' => array('destination' => 'node/' . $node->nid . '/edit/features/file/add'))))
       ),
     );
 
@@ -699,7 +567,7 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
   uc_file_refresh();
 
   // Grab all the models on this product.
-  $models = uc_product_get_models($node);
+  $models = uc_product_get_models($node->nid);
 
   // Use the feature's values to fill the form, if they exist.
   if (!empty($feature)) {
@@ -792,7 +660,6 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     '#type' => 'checkbox',
     '#title' => t('Override download limit'),
     '#default_value' => $download_status,
-    '#description' => t('Override the amount of times a customer can download this file after the product has been purchased.'),
   );
   $form['uc_file_limits']['download_limit_number'] = array(
     '#type' => 'textfield',
@@ -801,13 +668,15 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     '#description' => t("The number of times this file can be downloaded."),
     '#maxlength' => 4,
     '#size' => 4,
+    '#states' => array(
+      'visible' => array('input[name="download_override"]' => array('checked' => TRUE)),
+    ),
   );
 
   $form['uc_file_limits']['location_override'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Override location limit'),
+    '#title' => t('Override IP address limit'),
     '#default_value' => $address_status,
-    '#description' => t('Override the amount of locations (IP addresses) a customer can download this file from after the product has been purchased.'),
   );
   $form['uc_file_limits']['download_limit_addresses'] = array(
     '#type' => 'textfield',
@@ -816,13 +685,15 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     '#description' => t("The number of unique IPs that a file can be downloaded from."),
     '#maxlength' => 4,
     '#size' => 4,
+    '#states' => array(
+      'visible' => array('input[name="location_override"]' => array('checked' => TRUE)),
+    ),
   );
 
   $form['uc_file_limits']['time_override'] = array(
     '#type' => 'checkbox',
     '#title' => t('Override time limit'),
     '#default_value' => $time_status,
-    '#description' => t('Override the amount of time a customer can download this file after the product has been purchased.'),
   );
   $form['uc_file_limits']['download_limit_duration_qty'] = array(
     '#type' => 'textfield',
@@ -832,6 +703,10 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     '#maxlength' => 4,
     '#prefix' => '<div class="duration">',
     '#suffix' => '</div>',
+    '#states' => array(
+      'disabled' => array('select[name="download_limit_duration_granularity"]' => array('value' => 'never')),
+      'visible' => array('input[name="time_override"]' => array('checked' => TRUE)),
+    ),
   );
   $form['uc_file_limits']['download_limit_duration_granularity'] = array(
     '#type' => 'select',
@@ -846,6 +721,9 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     '#description' => t('How long after this product has been purchased until this file download expires.'),
     '#prefix' => '<div class="duration">',
     '#suffix' => '</div>',
+    '#states' => array(
+      'visible' => array('input[name="time_override"]' => array('checked' => TRUE)),
+    ),
   );
 
   return $form;
@@ -884,6 +762,7 @@ function uc_file_feature_form_validate($form, &$form_state) {
  * Form submission handler for uc_file_feature_form().
  *
  * @see uc_file_feature_form()
+ * @see uc_file_feature_form_submit()
  */
 function uc_file_feature_form_submit($form, &$form_state) {
   global $user;
@@ -926,7 +805,7 @@ function uc_file_feature_form_submit($form, &$form_state) {
 
   $file_product['pfid'] = $data['pfid'];
 
-  // Insert or update uc_file_product table
+  // Insert or update uc_file_product table.
   $key = array();
   if ($fpid = _uc_file_get_fpid($file_product['pfid'])) {
     $key = 'fpid';
@@ -970,7 +849,7 @@ function uc_file_feature_settings($form, &$form_state) {
   );
   $form['uc_file_download_limit'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Download limits'),
+    '#title' => t('Default download limits'),
     '#collapsible' => FALSE,
     '#collapsed' => FALSE,
   );
@@ -998,6 +877,9 @@ function uc_file_feature_settings($form, &$form_state) {
     '#maxlength' => 4,
     '#prefix' => '<div class="duration">',
     '#suffix' => '</div>',
+    '#states' => array(
+      'disabled' => array('select[name="uc_file_download_limit_duration_granularity"]' => array('value' => 'never')),
+    ),
   );
 
   $form['uc_file_download_limit']['uc_file_download_limit_duration_granularity'] = array(
@@ -1063,10 +945,6 @@ function uc_file_feature_settings_submit($form, &$form_state) {
     uc_file_refresh();
   }
 }
-
-/******************************************************************************
- * Module and Helper Functions                                                *
- ******************************************************************************/
 
 /**
  * Accumulates numeric limits (as of now, download and address).
@@ -1161,7 +1039,7 @@ function _uc_file_accumulate_limits(&$file_user, $file_limits, $force_overwrite)
 function _uc_file_autocomplete_filename() {
   $matches = array();
 
-  // Catch "/" characters that drupal autocomplete doesn't escape
+  // Catch "/" characters that drupal autocomplete doesn't escape.
   $url = explode('_autocomplete_file/', request_uri());
   $string = $url[1];
 
@@ -1179,9 +1057,9 @@ function _uc_file_autocomplete_filename() {
  * $file_limits['time_polarity'] is either '+' or '-', indicating whether to
  * add or subtract the amount of time. $file_limits['time_granularity'] is a
  * unit of time like 'day', 'week', or 'never'.  $file_limits['time_quantity']
- * is an amount of the previously mentioned unit...
- * e.g. $file_limits = array('time_polarity => '+', 'time_granularity' => 'day', 'time_quantity' => 4);
- * would read "4 days in the future."
+ * is an amount of the previously mentioned unit... e.g.
+ * $file_limits = array('time_polarity => '+', 'time_granularity' => 'day',
+ * 'time_quantity' => 4); would read "4 days in the future."
  *
  * @param $file_limits
  *   A keyed array containing the fields time_polarity, time_quantity,
@@ -1278,8 +1156,8 @@ function _uc_file_gather_files() {
 
   foreach ($files as $file) {
 
-    // Cut the base directory from the path
-    $filename = str_replace($dir, '', $file->filename);
+    // Cut the base directory out of the path.
+    $filename = str_replace($dir, '', $file->uri);
     $file_dir = dirname($filename);
     $fid = NULL;
 
@@ -1411,24 +1289,21 @@ function _uc_file_get_dir_file_ids($fids, $recursive = FALSE) {
   }
 
   foreach ($fids as $fid) {
-
     // Get everything inside and below the given directory, or if it's file,
     // just the file. We'll handle recursion later.
     if (!($base = uc_file_get_by_id($fid))) {
       continue;
     }
 
-   $base_name = $base->filename . (is_dir(uc_file_qualify_file($base->filename)) ? '%' : '');
-   $files = db_query("SELECT * FROM {uc_files} WHERE filename LIKE :name", array(':name' => $base_name));
+    $base_name = $base->filename . (is_dir(uc_file_qualify_file($base->filename)) ? '%' : '');
+    $files = db_query("SELECT * FROM {uc_files} WHERE filename LIKE :name", array(':name' => $base_name));
 
-    // PHP str_replace() can't replace only n matches, so we use regex. First
-    // we escape our file slashes, though.
-    // ...using str_replace()
-   $base_name = str_replace("\\", "\\\\", $base_name);
-   $base_name = str_replace("/", "\/", $base_name);
+    // PHP str_replace() can't replace only N matches, so we use regex. First
+    // we escape our file slashes, though, ... using str_replace().
+    $base_name = str_replace("\\", "\\\\", $base_name);
+    $base_name = str_replace("/", "\/", $base_name);
 
-   foreach ($files as $file) {
-
+    foreach ($files as $file) {
       // Make the file path relative to the given directory.
       $filename_change = preg_replace('/' . $base_name . '/', '', $file->filename, 1);
 
@@ -1513,7 +1388,7 @@ function _uc_file_sort_fids($fids) {
     $highest = 0;
     foreach ($dir_fids as $dir_fid => $filename) {
 
-      // Find the most slashes. (furthest down)
+      // Find the most slashes. (Furthest down.)
       if (substr_count($filename, '/') > $highest) {
         $highest = substr_count($filename, '/');
         $highest_fid = $dir_fid;
@@ -1628,7 +1503,7 @@ function &uc_file_get_by_name($filename) {
 }
 
 /**
- * Retrieves a file by ID.
+ * Retrieves a file by file ID.
  *
  * @param $fid
  *   A file ID.
@@ -1669,8 +1544,33 @@ function &uc_file_get_by_key($key) {
 }
 
 /**
- * Adds a file (or files) to a user's list of downloadable files,
- * accumulating limits.
+ * Retrieves a file by user ID.
+ *
+ * @param $uid
+ *   A user ID.
+ * @param $fid
+ *   A file ID.
+ *
+ * @return
+ *   A uc_file object.
+ */
+function &uc_file_get_by_uid($uid, $fid) {
+  $cache = _uc_file_get_cache();
+
+  if (!isset($cache[$uid][$fid])) {
+    $cache[$uid][$fid] = db_query("SELECT * FROM {uc_file_users} ufu " .
+      "LEFT JOIN {uc_files} uf ON uf.fid = ufu.fid " .
+      "WHERE ufu.fid = :fid AND ufu.uid = :uid", array(':uid' => $uid, ':fid' => $fid))->fetchObject();
+    if ($cache[$uid][$fid]) {
+      $cache[$uid][$fid]->addresses = unserialize($cache[$uid][$fid]->addresses);
+    }
+  }
+
+  return $cache[$uid][$fid];
+}
+
+/**
+ * Adds file(s) to a user's list of downloadable files, accumulating limits.
  *
  * First the function sees if the given file ID is a file or a directory,
  * if it's a directory, it gathers all the files under it recursively.
@@ -1739,7 +1639,7 @@ function uc_file_user_renew($fid, $user, $pfid, $file_limits, $force_overwrite) 
     $file_user['address_limit'] = $file_user['address_limit'] ? $file_user['address_limit'] : 0;
     $file_user['expiration'] = $file_user['expiration'] ? $file_user['expiration'] : 0;
 
-    // Calculate hash
+    // Calculate hash.
     $file_user['file_key'] = isset($file_user['file_key']) && $file_user['file_key'] ? $file_user['file_key'] : drupal_get_token(serialize($file_user));
 
     // Write and queue the file_user object.

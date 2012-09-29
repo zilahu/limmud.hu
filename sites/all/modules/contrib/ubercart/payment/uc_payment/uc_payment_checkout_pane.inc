@@ -12,21 +12,8 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
   switch ($op) {
     case 'view':
       $contents['#attached']['css'][] = drupal_get_path('module', 'uc_payment') . '/uc_payment.css';
-      $contents['#attached']['js'][] = drupal_get_path('module', 'uc_payment') . '/uc_payment.js';
-      $contents['#attached']['js'][] = array(
-        'data' => array('ucURL' => array('creditCardCVVInfo' => url('cart/checkout/credit/cvv_info'))),
-        'type' => 'setting',
-      );
-
-      if (empty($order->line_items)) {
-        $order->line_items = uc_order_load_line_items($order, FALSE);
-      }
 
       if (variable_get('uc_payment_show_order_total_preview', TRUE)) {
-        $contents['current_total'] = array(
-          '#type' => 'hidden',
-          '#value' => isset($order->order_total) && $order->order_total > 0 ? $order->order_total : NULL,
-        );
         $contents['line_items'] = array(
           '#theme' => 'uc_payment_totals',
           '#order' => $order,
@@ -36,42 +23,45 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
         );
       }
 
-      $methods = _uc_payment_method_list();
-      $options = array();
-      $default = NULL;
+      // Ensure that the form builder uses #default_value to determine which
+      // button should be selected after an ajax submission. This is
+      // necessary because the previously selected value may have become
+      // unavailable, which would result in an invalid selection.
+      unset($form_state['input']['panes']['payment']['payment_method']);
 
-      foreach ($methods as $id => $method) {
-        if ($method['checkout']) {
+      $options = array();
+      foreach (_uc_payment_method_list() as $id => $method) {
+        $set = rules_config_load('uc_payment_method_' . $method['id']);
+        if ($set && !$set->execute($order)) {
+          continue;
+        }
+
+        if ($method['checkout'] && !isset($method['express'])) {
           $options[$id] = $method['title'];
         }
       }
 
-      if (count($options)) {
-        if (isset($form_state['values'])  &&
-          isset($form_state['values']['panes']['payment']['payment_method']) &&
-          in_array($form_state['values']['panes']['payment']['payment_method'], array_keys($options))) {
-          $default = $form_state['values']['panes']['payment']['payment_method'];
-        }
-        else {
-          $default = (count($options) == 1 || empty($order->payment_method)) ? key($options) : $order->payment_method;
-        }
+      $description = '';
+      if (!$options) {
+        $description = t('Checkout cannot be completed without any payment methods enabled. Please contact an administrator to resolve the issue.');
+        $options[''] = t('No payment methods available');
       }
-
-      if (count($options) > 1) {
+      elseif (count($options) > 1) {
         $description = t('Select a payment method from the following options.');
       }
-      else {
-        $description = '';
+
+      if (!isset($options[$order->payment_method])) {
+        $order->payment_method = key($options);
       }
 
       $contents['payment_method'] = array(
         '#type' => 'radios',
         '#title' => t('Payment method'),
+        '#title_display' => 'invisible',
         '#options' => $options,
-        '#default_value' => $default,
-        '#disabled' => count($options) == 1 ? TRUE : FALSE,
+        '#default_value' => $order->payment_method,
+        '#disabled' => count($options) == 1,
         '#required' => TRUE,
-        '#theme' => 'uc_payment_method_select',
         '#ajax' => array(
           'callback' => 'uc_payment_checkout_payment_details',
           'wrapper' => 'payment-details',
@@ -82,25 +72,24 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
       );
 
       $contents['details'] = array(
-        '#prefix' => '<div id="payment-details" class="clearfix payment-details-' . $default . '">',
+        '#prefix' => '<div id="payment-details" class="clearfix payment-details-' . $order->payment_method . '">',
+        '#markup' => t('Continue with checkout to complete payment.'),
         '#suffix' => '</div>',
       );
 
-      $details = FALSE;
-      $func = _uc_payment_method_data($default, 'callback');
-      if (function_exists($func)) {
-        $details = $func('cart-details', $order, $form, $form_state);
-      }
-      if (is_array($details) && !empty($details)) {
+      $func = _uc_payment_method_data($order->payment_method, 'callback');
+      if (function_exists($func) && $details = $func('cart-details', $order, $form, $form_state)) {
+        unset($contents['details']['#markup']);
         $contents['details'] += $details;
-      }
-      else {
-        $contents['details']['#markup'] = t('Continue with checkout to complete payment.');
       }
 
       return array('description' => $description, 'contents' => $contents);
 
     case 'process':
+      if (empty($form_state['values']['panes']['payment']['payment_method'])) {
+        form_set_error('panes][payment][payment_method', t('You cannot check out without selecting a payment method.'));
+        return FALSE;
+      }
       $order->payment_method = $form_state['values']['panes']['payment']['payment_method'];
       $func = _uc_payment_method_data($order->payment_method, 'callback');
       if (function_exists($func)) {
@@ -112,24 +101,7 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
       return TRUE;
 
     case 'review':
-      $line_items = $order->line_items;
-      $items = _uc_line_item_list();
-      foreach ($items as $item) {
-        if (isset($item['display_only']) && $item['display_only'] == TRUE) {
-          $result = $item['callback']('display', $order);
-          if (is_array($result)) {
-            foreach ($result as $line) {
-              $line_items[] = array(
-                'title' => $line['title'],
-                'amount' => $line['amount'],
-                'weight' => $item['weight']
-              );
-            }
-          }
-        }
-      }
-      usort($line_items, 'uc_weight_sort');
-
+      $line_items = uc_order_load_line_items_display($order);
       foreach ($line_items as $line_item) {
         $review[] = array('title' => $line_item['title'], 'data' => theme('uc_price', array('price' => $line_item['amount'])));
       }
@@ -162,22 +134,4 @@ function uc_checkout_pane_payment($op, &$order, $form = NULL, &$form_state = NUL
  */
 function uc_payment_checkout_payment_details($form, $form_state) {
   return $form['panes']['payment']['details'];
-}
-
-/**
- * We need a theme function for the radios element in case another module alters
- * the default or available payment methods... we need the JS to grab the right
- * default payment details.
- *
- * @ingroup themeable
- */
-function theme_uc_payment_method_select($variables) {
-  $form = $variables['form'];
-
-  if (empty($form['#options'])) {
-    drupal_set_message(t('Checkout cannot be completed without any payment methods enabled. Please contact an administrator to resolve the issue.'), 'error');
-    return;
-  }
-
-  return drupal_render_children($form);
 }

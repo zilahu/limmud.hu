@@ -366,3 +366,11 @@ table.bordered {
 	margin-top: 10px;
 }
 
+#miert-regisztralj {
+    display: none;
+}
+
+#cboxLoadedContent #miert-regisztralj {
+    display: block;
+}
+

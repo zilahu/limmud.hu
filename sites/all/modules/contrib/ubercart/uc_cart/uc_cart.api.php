@@ -80,6 +80,9 @@ function hook_uc_add_to_cart_data($form_values) {
  * especially important for product kits, because it may be displayed as a
  * single unit in the cart even though it is represented as several items.
  *
+ * This hook is only called for the module that owns the cart item in
+ * question, as set in $item->module.
+ *
  * @param $item
  *   The item in the cart to display.
  *
@@ -93,11 +96,12 @@ function hook_uc_add_to_cart_data($form_values) {
  *     - #value: The module implementing this hook and the node represented by
  *       $item.
  *   - "remove"
- *     - #type: checkbox
- *     - #value: If selected, removes the $item from the cart.
+ *     - #type: submit
+ *     - #value: t('Remove'); when clicked, will remove $item from the cart.
  *   - "description"
  *     - #type: markup
- *     - #value: Themed markup (usually an unordered list) displaying extra information.
+ *     - #value: Themed markup (usually an unordered list) displaying extra
+ *       information.
  *   - "title"
  *     - #type: markup
  *     - #value: The displayed title of the $item.
@@ -142,54 +146,6 @@ function hook_uc_cart_display($item) {
 }
 
 /**
- * Adds extra data about an item in the cart.
- *
- * Products that are added to a customer's cart are referred as items until the
- * sale is completed. Just think of a grocery store having a bunch of products
- * on the shelves but putting a sign over the express lane saying "15 Items or
- * Less." hook_uc_cart_item() is in charge of acting on items at various times
- * like when they are being added to a cart, saved, loaded, and checked out.
- *
- * Here's the rationale for this hook: Products may change on a live site during
- * a price increase or change to attribute adjustments. If a user has previously
- * added an item to their cart, when they go to checkout or view their cart
- * screen we want the latest pricing and model numbers to show. So, the
- * essential product information is stored in the cart, but when the items in
- * a cart are loaded, modules are given a chance to adjust the data against
- * the latest settings.
- *
- * @param $op
- *   The action that is occurring. Possible values:
- *   - load: Passed for each item when a cart is being loaded in the function
- *     uc_cart_get_contents(). This gives modules the chance to tweak
- *     information for items when the cart is being loaded prior to being
- *     added to an order. No return value is expected.
- *   - view: Passed for each item when it is about to be displayed on the
- *     cart page. Modifications made affect only displayed information and are
- *     not used in any calculations.
- *   - can_ship: Passed when a cart is being scanned for items that are not
- *     shippable items. Ubercart will bypass cart and checkout operations
- *     specifically related to tangible products if nothing in the cart is
- *     shippable. hook_uc_cart_item() functions that check for this op are
- *     expected to return TRUE or FALSE based on whether a product is
- *     shippable or not.
- *   - remove: Passed when an item is removed from the cart.
- *   - checkout: Passed for each item when the cart is being emptied for
- *     checkout.
- *
- * @return
- *   No return value for load or view. TRUE or FALSE for can_ship.
- */
-function hook_uc_cart_item($op, $item) {
-  switch ($op) {
-    case 'load':
-      $term = array_shift(taxonomy_node_get_terms_by_vocabulary($item->nid, variable_get('uc_manufacturer_vid', 0)));
-      $item->manufacturer = $term->name;
-      break;
-  }
-}
-
-/**
  * Registers callbacks for a cart pane.
  *
  * The default cart view page displays a table of the cart contents and a few
@@ -208,11 +164,12 @@ function hook_uc_cart_item($op, $item) {
  *     - value: The name of the cart pane displayed to the user.  Use t().
  *   - "enabled"
  *     - type: boolean
- *     - value: Whether the pane is enabled by default or not. (Defaults to TRUE.)
+ *     - value: Whether the pane is enabled by default or not.
+ *       (Defaults to TRUE.)
  *   - "weight"
  *     - type: integer
- *     - value: The weight of the pane to determine its display order. (Defaults
- *         to 0.)
+ *     - value: The weight of the pane to determine its display order.
+ *       (Defaults to 0.)
  *   - "body"
  *     - type: array
  *     - value: The body of the pane to be rendered on the cart view screen.
@@ -304,8 +261,8 @@ function hook_uc_checkout_complete($order, $account) {
  * panes for shipping and payment purposes as well.
  *
  * @return
- *   An array of checkout pane arrays, keyed by the internal ID of the pane, each
- *   with the following members:
+ *   An array of checkout pane arrays, keyed by the internal ID of the pane,
+ *   each with the following members:
  *   - title:
  *     - type: string
  *     - value: The name of the pane as it appears on the checkout form.
@@ -314,33 +271,34 @@ function hook_uc_checkout_complete($order, $account) {
  *     - value: A short description of the pane for the admin pages.
  *   - callback:
  *     - type: string
- *     - value: The name of the callback function for this pane.  View
- *       @link http://www.ubercart.org/docs/developer/245/checkout this page @endlink
- *       for more documentation and examples of checkout pane callbacks.
+ *     - value: The name of the callback function for this pane.
  *   - weight:
  *     - type: integer
- *     - value: Default weight of the pane, defining its order on the checkout form.
+ *     - value: Default weight of the pane, defining its order on the checkout
+ *       form.
  *   - enabled:
  *     - type: boolean
- *     - value: Optional. Whether or not the pane is enabled by default. Defaults
- *       to TRUE.
+ *     - value: Optional. Whether or not the pane is enabled by default.
+ *       Defaults to TRUE.
  *   - process:
  *     - type: boolean
- *     - value: Optional. Whether or not this pane needs to be processed when the
- *       checkout form is submitted. Defaults to TRUE.
+ *     - value: Optional. Whether or not this pane needs to be processed when
+ *       the checkout form is submitted. Defaults to TRUE.
  *   - collapsible:
  *     - type: boolean
  *     - value: Optional. Whether or not this pane is displayed as a collapsible
  *       fieldset. Defaults to TRUE.
  *   - shippable:
  *     - type: boolean
- *     - value: Optional. If TRUE, the pane is only shown if the cart is shippable.
- *       Defaults to NULL.
+ *     - value: Optional. If TRUE, the pane is only shown if the cart is
+ *       shippable. Defaults to NULL.
+ *
+ * @see http://www.ubercart.org/docs/developer/245/checkout
  */
 function hook_uc_checkout_pane() {
   $panes['cart'] = array(
     'callback' => 'uc_checkout_pane_cart',
-    'title' => t('Cart Contents'),
+    'title' => t('Cart contents'),
     'desc' => t("Display the contents of a customer's shopping cart."),
     'weight' => 1,
     'process' => FALSE,
@@ -352,14 +310,14 @@ function hook_uc_checkout_pane() {
 /**
  * Builds and proceses a pane defined by hook_uc_checkout_pane().
  *
- * @param string $op
- *   The operation the pane is performing. Possible values are "view", "process",
- *   "review", and "settings".
- * @param UcOrder $order
+ * @param $op
+ *   The operation the pane is performing. Possible values are "view",
+ *   "process", "review", and "settings".
+ * @param $order
  *   The order being viewed or edited.
- * @param array $form
+ * @param $form
  *   The order's edit form. NULL for non-edit ops.
- * @param array &$form_state
+ * @param &$form_state
  *   The form state array of the edit form. NULL for non-edit ops.
  *
  * @return
@@ -368,7 +326,8 @@ function hook_uc_checkout_pane() {
  *     "contents" is a form array to collect the checkout data for the pane. The
  *     description provides help text for the pane as a whole.
  *   - process: A boolean indicating that checkout should continue. During this
- *     op, $order should be modified with the values in $form_state['values']['panes'][PANE_ID].
+ *     op, $order should be modified with the values in
+ *     $form_state['values']['panes'][PANE_ID].
  *   - review: An array containing review sections. A review section contains
  *     "title" and "data" keys which have HTML to be displayed on the checkout
  *     review page.
@@ -395,7 +354,7 @@ function uc_checkout_pane_callback($op, $order, $form = NULL, &$form_state = NUL
       return array('description' => $description, 'contents' => $contents);
 
     case 'process':
-      if (strlen($form_state['values']['panes']['comments']['comments']) > 0) {
+      if ($form_state['values']['panes']['comments']['comments']) {
         db_delete('uc_order_comments')
           ->condition('order_id', $order->order_id)
           ->execute();

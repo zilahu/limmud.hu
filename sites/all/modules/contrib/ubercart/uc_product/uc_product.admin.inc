@@ -6,57 +6,23 @@
  */
 
 /**
- * Lists all products.
- */
-function uc_product_administration() {
-  $build = array();
-
-  $header = array();
-  $tbl_columns = uc_product_table_header();
-  foreach ($tbl_columns as $column) {
-    $header[] = $column['cell'];
-  }
-
-  // Display 50 products per page.
-  $query = db_select('node', 'n')->extend('PagerDefault')->extend('TableSort')
-    ->fields('n', array('nid'))
-    ->orderByHeader($header)
-    ->limit(50);
-  $query->join('uc_products', 'p', 'n.vid = p.vid');
-
-  $nids = $query->execute()->fetchCol();
-
-  // Display the product table and pager if necessary.
-  $build['table'] = tapir_get_table('uc_product_table', $nids);
-  $build['pager'] = array(
-    '#theme' => 'pager',
-    '#weight' => 5,
-  );
-
-  return $build;
-}
-
-/**
  * Displays a list of product classes.
  */
 function uc_product_class_default() {
-  $result = db_query("SELECT * FROM {uc_product_classes}");
+  $classes = uc_product_class_load();
   $header = array(t('Class ID'), t('Name'), t('Description'), t('Operations'));
   $rows = array();
-  foreach ($result as $class) {
-    $ops = array(
-      l(t('edit'), 'admin/store/products/classes/' . $class->pcid . '/edit'),
-      l(t('delete'), 'admin/store/products/classes/' . $class->pcid . '/delete'),
-    );
+  foreach ($classes as $class) {
+    $ops = array(l(t('edit'), 'admin/store/products/classes/' . $class->pcid . '/edit'));
+    if (empty($class->locked)) {
+      $ops[] = l(t('delete'), 'admin/store/products/classes/' . $class->pcid . '/delete');
+    }
     $rows[] = array(
-      $class->pcid,
-      $class->name,
-      $class->description,
+      check_plain($class->pcid),
+      check_plain($class->name),
+      filter_xss_admin($class->description),
       implode(' ', $ops),
     );
-  }
-  if (count($rows) == 0) {
-    $rows[] = array(array('data' => t('No product classes have been defined yet.'), 'colspan' => '5'));
   }
 
   $build = array();
@@ -64,6 +30,7 @@ function uc_product_class_default() {
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#empty' => t('No product classes have been defined yet.'),
   );
   $build['header'] = array(
     '#markup' => '<h2>' . t('Add a class') . '</h2>',
@@ -79,6 +46,8 @@ function uc_product_class_default() {
  * @ingroup forms
  */
 function uc_product_settings_form($form, &$form_state) {
+
+  // Put fieldsets into vertical tabs
   $form['product-settings'] = array('#type' => 'vertical_tabs');
 
   $form['product'] = array(
@@ -109,21 +78,30 @@ function uc_product_settings_form($form, &$form_state) {
     '#default_value' => variable_get('uc_product_image_widget', NULL),
   );
 
-  $form['product']['uc_product_add_to_cart_qty'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Display an optional quantity field in the <em>Add to Cart</em> form.'),
-    '#default_value' => variable_get('uc_product_add_to_cart_qty', FALSE),
-  );
+  if (module_exists('uc_cart')) {
+    $form['product']['uc_product_add_to_cart_qty'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display an optional quantity field in the <em>Add to Cart</em> form.'),
+      '#default_value' => variable_get('uc_product_add_to_cart_qty', FALSE),
+    );
+  }
 
   foreach (module_invoke_all('uc_product_feature') as $feature) {
     if (isset($feature['settings']) &&
         function_exists($feature['settings'])) {
       $form[$feature['id']] = array(
         '#type' => 'fieldset',
-        '#title' => t('!feature settings', array('!feature' => $feature['title'])),
+        '#title' => t('@feature settings', array('@feature' => $feature['title'])),
         '#group' => 'product-settings',
       );
       $form[$feature['id']] += $feature['settings'](array(), $form_state);
+
+      if (function_exists($feature['settings'] . '_validate')) {
+        $form['#validate'][] = $feature['settings'] . '_validate';
+      }
+      if (function_exists($feature['settings'] . '_submit')) {
+        $form['#submit'][] = $feature['settings'] . '_submit';
+      }
     }
   }
 
@@ -136,37 +114,31 @@ function uc_product_settings_form($form, &$form_state) {
 function uc_product_features($node, $fid = NULL, $pfid = NULL) {
   drupal_set_title($node->title);
 
-  $build = array();
-
   $header = array(t('Type'), t('Description'), t('Operations'));
+  $rows = array();
 
   $features = uc_product_feature_load_multiple($node->nid);
-  if (empty($features)) {
-    $rows[] = array(
-      array('data' => t('No features found for this product.'), 'colspan' => 3),
+  foreach ($features as $feature) {
+    $operations = array(
+      'edit' => array('title' => t('edit'), 'href' => 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid),
+      'delete' => array('title' => t('delete'), 'href' => 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid . '/delete'),
     );
-  }
-  else {
-    foreach ($features as $feature) {
-      $operations = array(
-        l(t('edit'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid),
-        l(t('delete'), 'node/' . $node->nid . '/edit/features/' . $feature->fid . '/' . $feature->pfid . '/delete'),
-      );
-      $rows[] = array(
-        'data' => array(
-          array('data' => uc_product_feature_data($feature->fid, 'title'), 'nowrap' => 'nowrap'),
-          array('data' => $feature->description, 'width' => '100%'),
-          array('data' => implode(' ', $operations), 'nowrap' => 'nowrap'),
-        ),
-        'valign' => 'top',
-      );
-    }
+    $rows[] = array(
+      array('data' => uc_product_feature_data($feature->fid, 'title')),
+      array('data' => $feature->description),
+      theme('links', array(
+        'links' => $operations,
+        'attributes' => array('class' => array('links', 'inline')),
+      )),
+    );
   }
 
   $build['features'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
+    '#attributes' => array('class' => array('uc-product-features')),
+    '#empty' => t('No features found for this product.'),
   );
   $build['add_form'] = drupal_get_form('uc_product_feature_add_form', $node);
 
@@ -249,6 +221,10 @@ function uc_product_feature_add_form($form, &$form_state, $node) {
 /**
  * Theme function for uc_product_feature_add_form().
  *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @see uc_product_feature_add_form()
  * @ingroup themeable
  */
@@ -274,11 +250,10 @@ function uc_product_feature_add_form_submit($form, &$form_state) {
  * @ingroup forms
  */
 function uc_product_feature_confirm_delete($form, &$form_state, $node, $fid, $feature) {
-  $question = $node->title;
   $description = t('Are you sure you wish to delete this %feature?', array('%feature' => uc_product_feature_data($fid, 'title')))
     . '<div><b>' . t('Description') . ':</b><br />' . $feature['description'] . '</div><br />';
 
-  return confirm_form($form, $question, 'node/' . $node->nid . '/edit/features', $description, t('Delete'), t('Cancel'), 'pf_delete');
+  return confirm_form($form, check_plain($node->title), 'node/' . $node->nid . '/edit/features', $description, t('Delete'), t('Cancel'), 'pf_delete');
 }
 
 /**
@@ -300,13 +275,7 @@ function uc_product_feature_confirm_delete_submit($form, &$form_state) {
 }
 
 /**
- * Sets up imagefield and imagecache for products.
- *
- * @param $checks
- *   A bitmap describing the state of the image modules. Four checks are made
- *   to fill this bitmap: an imagefield exists, an imagefield is attached to
- *   product, the imagecache presets exist, and each preset has at least one
- *   action.
+ * Sets up image field for products.
  *
  * @see uc_product_uc_store_status()
  */
@@ -350,19 +319,20 @@ function uc_product_class_form($form, &$form_state, $class = NULL) {
   $form['name'] = array(
     '#type' => 'textfield',
     '#title' => t('Class name'),
+    '#description' => t('The human-readable name of this content type as it should appear on the !create_content page.  There are no character restrictions on this name.', array('!create_content' => l(t('Create content'), 'node/add'))),
     '#default_value' => $classname,
     '#required' => TRUE,
   );
   $form['description'] = array(
     '#type' => 'textarea',
     '#title' => t('Description'),
-    '#description' => t('This text describes the content type created for this product class to administrators.'),
+    '#description' => t('This text describes the content type to administrators.'),
     '#default_value' => $classdesc,
   );
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Submit'),
+    '#value' => t('Save'),
   );
 
   return $form;
@@ -408,6 +378,14 @@ function uc_product_class_form_submit($form, &$form_state) {
       'name' => $form_state['values']['name'],
       'description' => $form_state['values']['description'],
     ))
+    ->execute();
+
+  db_update('node_type')
+    ->fields(array(
+      'name' => $form_state['values']['name'],
+      'description' => $form_state['values']['description'],
+    ))
+    ->condition('type', $pcid)
     ->execute();
 
   uc_product_node_info(TRUE);

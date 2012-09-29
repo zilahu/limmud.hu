@@ -70,6 +70,33 @@ function uc_coupon_purchase_rules_action_info() {
       
     ),
   );
+  $actions['uc_coupon_purchase_create_action'] = array(
+    'label' =>  t('Clone coupon and assign to a user'),
+    'group' => t('Coupon'),
+    'provides' => array(
+      'coupon' => array(
+        'type' => 'uc_coupon',
+        'label' => t('Coupon'),
+      ),
+    ),
+    'parameter' => array(
+      'cid' => array(
+        'type' => 'integer',
+        'label' => t('Coupon'),
+        'description' => t('Select the base coupon to be assigned.'),
+        'options list' => 'uc_coupon_purchase_cid_options',
+        'restriction' => 'input',
+      ),
+      'user' => array(
+        'type' => 'user',
+        'label' => t('User to who we assing coupon'),
+      ),
+      'quantity' => array(
+        'type' => 'integer',
+        'label' => t('Quantity (multiplied by bulk coupon)'),
+      ),
+    ),
+  );
   
   return $actions;
 }
@@ -114,4 +141,25 @@ function uc_coupon_purchase_email($order, $coupon, $from, $addresses, $subject, 
       watchdog('uc_order', 'Attempt to e-mail @email concerning order @order_id failed.', array('@email' => $email, '@order_id' => $order->order_id), WATCHDOG_ERROR);
     }
   }
+}
+
+/**
+ * Action callback to give user a coupon
+ */
+function uc_coupon_purchase_create_action($cid, $user, $quantity) {
+  $coupon = uc_coupon_load($cid);
+  if ($coupon->cid) {
+    $coupon = uc_coupon_purchase_create($coupon, $quantity, $user->uid);
+    return array('coupon' => $coupon);
+  }
+  else {
+    return array('coupon' => NULL);
+  }
+}
+
+/**
+ * Options list callback for list of coupons to assign.
+ */
+function uc_coupon_purchase_cid_options() {
+  return db_query('SELECT cid, name FROM {uc_coupons} WHERE status = 0')->fetchAllKeyed();
 }

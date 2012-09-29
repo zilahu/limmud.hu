@@ -309,3 +309,15 @@ function _limmudhelper_webform_component_mapping($node) {
   return $mapping;
 }
 
+/*
+function limmudhelper_views_pre_render(&$view) {
+    if ($view->name == 'eloadasok_kategoriankent' && $view->current_display == 'page') { 
+        if (!empty($view->args[1])) {
+            //$term = taxonomy_term_load($view->args[1]);
+            //drupal_set_title(t($term->name));
+        }
+    }
+}
+*/
+
+

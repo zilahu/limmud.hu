@@ -14,6 +14,21 @@
  * @ingroup forms
  */
 function uc_catalog_settings_form($form, &$form_state) {
+  $view = views_get_view('uc_catalog');
+  $displays = array();
+  foreach ($view->display as $display) {
+    if ($display->display_plugin == 'page') {
+      $displays[$display->id] = $display->display_title;
+    }
+  }
+
+  $form['catalog-top-level']['uc_catalog_display'] = array(
+    '#type' => 'select',
+    '#title' => t('Catalog display'),
+    '#default_value' => variable_get('uc_catalog_display', 'catalog'),
+    '#options' => $displays,
+  );
+
   $vid = variable_get('uc_catalog_vid', NULL);
   if ($vid) {
     $catalog = taxonomy_vocabulary_load($vid);
@@ -51,12 +66,6 @@ function uc_catalog_orphaned_products() {
   $build = array();
 
   if (variable_get('taxonomy_maintain_index_table', TRUE)) {
-    $build['explanation'] = array(
-      '#markup' => t('Orphaned products are products that you have created but not yet assigned to a category in your product catalog. All such products will appear as links below that you can follow to edit the product listings to assign them to categories.'),
-      '#prefix' => '<p>',
-      '#suffix' => '</p>',
-    );
-
     $vid = variable_get('uc_catalog_vid', 0);
     $product_types = uc_product_types();
     $field = field_info_field('taxonomy_catalog');
@@ -91,4 +100,17 @@ function uc_catalog_orphaned_products() {
   }
 
   return $build;
+}
+
+/**
+ * Repairs the catalog taxonomy field if it is lost or deleted.
+ */
+function uc_catalog_repair_field() {
+  foreach (uc_product_types() as $type) {
+    uc_catalog_add_node_type($type);
+  }
+  uc_catalog_add_image_field();
+
+  drupal_set_message(t('The catalog taxonomy reference field has been repaired.'));
+  drupal_goto('admin/structure/types/manage/product/fields');
 }

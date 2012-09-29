@@ -62,6 +62,17 @@ function uc_order_rules_event_info() {
     ),
   );
 
+  $events['uc_order_delete'] = array(
+    'label' => t('An order is being deleted'),
+    'group' => t('Order'),
+    'variables' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+    ),
+  );
+
   return $events;
 }
 
@@ -69,6 +80,57 @@ function uc_order_rules_event_info() {
  * Implements hook_rules_condition_info().
  */
 function uc_order_rules_condition_info() {
+  $conditions['uc_order_condition_order_state'] = array(
+    'label' => t("Check an order's state"),
+    'group' => t('Order'),
+    'parameter' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+      'order_state' => array(
+        'type' => 'text',
+        'label' => t('Order state'),
+        'options list' => 'uc_order_condition_order_state_options',
+        'restriction' => 'input',
+      ),
+    ),
+  );
+
+  $conditions['uc_order_condition_delivery_country'] = array(
+    'label' => t("Check an order's shipping country"),
+    'group' => t('Order'),
+    'parameter' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+      'countries' => array(
+        'type' => 'list<integer>',
+        'label' => t('Countries'),
+        'options list' => 'uc_country_option_list',
+        'restriction' => 'input',
+      ),
+    ),
+  );
+
+  $conditions['uc_order_condition_billing_country'] = array(
+    'label' => t("Check an order's billing country"),
+    'group' => t('Order'),
+    'parameter' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+      'countries' => array(
+        'type' => 'list<integer>',
+        'label' => t('Countries'),
+        'options list' => 'uc_country_option_list',
+        'restriction' => 'input',
+      ),
+    ),
+  );
+
   $conditions['uc_order_condition_has_products'] = array(
     'label' => t("Check an order's products"),
     'group' => t('Order: Product'),
@@ -217,7 +279,8 @@ function uc_order_rules_action_info() {
       'from' => array(
         'type' => 'text',
         'label' => t('Sender'),
-        'description' => t("Enter the 'From' email addresses, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'description' => t("Enter the 'From' email address, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'optional' => TRUE,
       ),
       'addresses' => array(
         'type' => 'text',
@@ -248,10 +311,13 @@ function uc_order_rules_action_info() {
       'from' => array(
         'type' => 'text',
         'label' => t('Sender'),
+        'description' => t("Enter the 'From' email address, or leave blank to use your store email address. You may use order tokens for dynamic email addresses."),
+        'optional' => TRUE,
       ),
       'addresses' => array(
         'type' => 'text',
         'label' => t('Recipients'),
+        'description' => t('Enter the email addresses to receive the invoice, one on each line. You may use order tokens for dynamic email addresses.'),
       ),
       'subject' => array(
         'type' => 'text',
@@ -275,9 +341,42 @@ function uc_order_rules_action_info() {
   return $actions;
 }
 
-/******************************************************************************
- * Condition Callbacks and Forms                                              *
- ******************************************************************************/
+/**
+ * Checks the current order state.
+ */
+function uc_order_condition_order_state($order, $order_state) {
+  return uc_order_status_data($order->order_status, 'state') == $order_state;
+}
+
+/**
+ * Options callback.
+ *
+ * @see uc_order_condition_order_state()
+ */
+function uc_order_condition_order_state_options() {
+  foreach (uc_order_state_list('general') as $id => $state) {
+    $options[$id] = $state['title'];
+  }
+  foreach (uc_order_state_list('specific') as $id => $state) {
+    $options[$id] = $state['title'];
+  }
+
+  return $options;
+}
+
+/**
+ * Checks that the order has one of the selected delivery countries.
+ */
+function uc_order_condition_delivery_country($order, $countries) {
+  return in_array($order->delivery_country, $countries);
+}
+
+/**
+ * Checks that the order has one of the selected billing countries.
+ */
+function uc_order_condition_billing_country($order, $countries) {
+  return in_array($order->billing_country, $countries);
+}
 
 /**
  * Checks that the order has the selected combination of products.
@@ -312,9 +411,10 @@ function uc_order_condition_has_products($order, $products, $required, $forbidde
 function uc_order_condition_has_products_options() {
   $options = array();
   $result = db_query("SELECT nid FROM {uc_products}");
-  foreach ($result as $product) {
-    $options += uc_product_get_models(node_load($product->nid), FALSE);
+  foreach ($result as $row) {
+    $options += uc_product_get_models($row->nid, FALSE);
   }
+  asort($options);
 
   return $options;
 }
@@ -394,14 +494,16 @@ function uc_order_condition_products_weight($order, $products, $weight_units, $w
   foreach ($order->products as $product) {
     $unit_conversion = uc_weight_conversion($product->weight_units, $weight_units);
     $totals['all'] += $product->qty * $product->weight * $unit_conversion;
-    $totals[$product->model] = $product->qty * $product->weight * $unit_conversion;
+    $totals[$product->nid] = $product->qty * $product->weight * $unit_conversion;
   }
   if (in_array('all', $products)) {
     $total = $totals['all'];
   }
   else {
     foreach ($products as $product) {
-      $total += $totals[$product];
+      if (isset($totals[$product])) {
+        $total += $totals[$product];
+      }
     }
   }
   switch ($op) {
@@ -436,10 +538,6 @@ function uc_order_condition_weight_units_options() {
 function uc_order_condition_is_shippable($order, $settings) {
   return uc_order_is_shippable($order);
 }
-
-/******************************************************************************
- * Action Callbacks and Forms                                                 *
- ******************************************************************************/
 
 /**
  * Updates an order's status.
@@ -531,11 +629,6 @@ function uc_order_action_email($order, $from, $addresses, $subject, $message, $f
     }
   }
 
-  if (empty($recipients)) {
-    watchdog('uc_order', 'Attempted to send an order e-mail with no recipient.', array(), WATCHDOG_ERROR);
-    return;
-  }
-
   foreach ($recipients as $email) {
     $sent = drupal_mail('uc_order', 'action-mail', $email, uc_store_mail_recipient_language($email), $settings, $from);
 
@@ -597,11 +690,6 @@ function uc_order_action_email_invoice($order, $from, $addresses, $subject, $tem
   }
 
   $settings['message'] = theme('uc_order', array('order' => $order, 'op' => $settings['view'], 'template' => $settings['template']));
-
-  if (empty($recipients)) {
-    watchdog('uc_order', 'Attempted to e-mail an invoice with no recipient.', array(), WATCHDOG_ERROR);
-    return;
-  }
 
   foreach ($recipients as $email) {
     $sent = drupal_mail('uc_order', 'action-mail', $email, uc_store_mail_recipient_language($email), $settings, $from);

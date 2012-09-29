@@ -51,7 +51,10 @@ function uc_2checkout_ucga_display() {
 function uc_2checkout_uc_payment_method() {
   $path = base_path() . drupal_get_path('module', 'uc_2checkout');
   $title = variable_get('uc_2checkout_method_title', t('Credit card on a secure server:'));
-  $title .= '<br /><img src="' . $path . '/2co_logo.jpg" style="position: relative; left: 2.5em;" />';
+  $title .= '<br />' . theme('image', array(
+    'path' => drupal_get_path('module', 'uc_2checkout') . '/2co_logo.jpg',
+    'attributes' => array('class' => array('uc-2checkout-logo')),
+  ));
 
   $methods['2checkout'] = array(
     'name' => t('2Checkout'),
@@ -76,33 +79,27 @@ function uc_2checkout_uc_payment_method() {
 function uc_payment_method_2checkout($op, &$order, $form = NULL, &$form_state = NULL) {
   switch ($op) {
     case 'cart-details':
-      if (variable_get('uc_2checkout_check', FALSE)) {
-        if ($_SESSION['pay_method'] == 'CK') {
-          $sel = 'CK';
-        }
-        else {
-          $sel = 'CC';
-        }
-        unset($_SESSION['pay_method']);
+      $build = array();
 
-        $build = array(
+      if (variable_get('uc_2checkout_check', FALSE)) {
+        $build['pay_method'] = array(
           '#type' => 'select',
           '#title' => t('Select your payment type:'),
-          '#name' => 'pay_method',
-          '#id' => 'edit-pay-method',
-          '#attributes' => array('class' => array('form-select')),
-          '#default_value' => $sel,
+          '#default_value' => $_SESSION['pay_method'] == 'CK' ? 'CK' : 'CC',
           '#options' => array(
             'CC' => t('Credit card'),
             'CK' => t('Online check'),
           ),
         );
+        unset($_SESSION['pay_method']);
       }
 
       return $build;
 
     case 'cart-process':
-      $_SESSION['pay_method'] = $form_state['values']['panes']['payment']['details']['pay_method'];
+      if (isset($form_state['values']['panes']['payment']['details']['pay_method'])) {
+        $_SESSION['pay_method'] = $form_state['values']['panes']['payment']['details']['pay_method'];
+      }
       return;
 
     case 'settings':
@@ -189,15 +186,15 @@ function uc_2checkout_form($form, &$form_state, $order) {
     'x_receipt_link_url' => url('cart/2checkout/complete/' . uc_cart_get_id(), array('absolute' => TRUE)),
     'merchant_order_id' => $order->order_id,
     'pay_method' => isset($_SESSION['pay_method']) ? $_SESSION['pay_method'] : 'CC',
-    'card_holder_name' => substr($order->billing_first_name . ' ' . $order->billing_last_name, 0, 128),
-    'street_address' => substr($order->billing_street1, 0, 64),
-    'street_address2' => substr($order->billing_street2, 0, 64),
-    'city' => substr($order->billing_city, 0, 64),
+    'card_holder_name' => drupal_substr($order->billing_first_name . ' ' . $order->billing_last_name, 0, 128),
+    'street_address' => drupal_substr($order->billing_street1, 0, 64),
+    'street_address2' => drupal_substr($order->billing_street2, 0, 64),
+    'city' => drupal_substr($order->billing_city, 0, 64),
     'state' => uc_get_zone_code($order->billing_zone),
-    'zip' => substr($order->billing_postal_code, 0, 16),
+    'zip' => drupal_substr($order->billing_postal_code, 0, 16),
     'country' => $country[0]['country_iso_code_3'],
-    'email' => substr($order->primary_email, 0, 64),
-    'phone' => substr($order->billing_phone, 0, 16),
+    'email' => drupal_substr($order->primary_email, 0, 64),
+    'phone' => drupal_substr($order->billing_phone, 0, 16),
     'id_type' => 1,
   );
 
@@ -206,7 +203,7 @@ function uc_2checkout_form($form, &$form_state, $order) {
     $i++;
     $data['c_prod_' . $i] = $product->model . ',' . $product->qty;
     $data['c_name_' . $i] = $product->title;
-    $data['c_description_' . $i] = $desc;
+    $data['c_description_' . $i] = '';
     $data['c_price_' . $i] = uc_currency_format($product->price, FALSE, FALSE, '.');
   }
 

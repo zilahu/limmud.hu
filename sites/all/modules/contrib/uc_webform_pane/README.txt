@@ -72,6 +72,4 @@ Translations
 
 Notes
 -----
- * Fieldsets are not supported.
-
  * For Views integration see http://drupal.org/node/680386.

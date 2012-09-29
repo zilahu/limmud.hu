@@ -25,9 +25,9 @@ function uc_coupon_workflow_permission() {
  * 		The list of products to valiate against (usually the current cart contents).
  */
 function uc_coupon_workflow_uc_coupon_revalidate($products) {
-  if (isset($_SESSION['cart_order'])) {
-    // If checkkout is in progress, use the cart_order to provide additional information.
-    $order = uc_order_load($_SESSION['cart_order']);
+  if (isset($_SESSION['cart_order']) && ($order = uc_order_load($_SESSION['cart_order']))) {
+    // If checkout is in progress, use the cart_order to provide additional information.
+    $order = clone $order;
   }
   else {
     // Otherwise create an empty order
@@ -103,7 +103,7 @@ function uc_coupon_workflow_suspend_element($events = FALSE) {
     foreach ($rules as $name => $rule) {
       if ($rule instanceof RulesReactionRule && $rule->active) {
         foreach ($rule->conditions() as $condition) {
-          if ($condition->getElementName() == 'uc_coupon_workflow_suspended' && (!$events || count(array_intersect($rule->events(), $events)))) {
+          if (method_exists($condition, 'getElementName') && $condition->getElementName() == 'uc_coupon_workflow_suspended' && (!$events || count(array_intersect($rule->events(), $events)))) {
               $found[] = $rule->label;
           }
         }
