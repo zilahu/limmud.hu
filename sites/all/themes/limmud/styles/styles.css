@@ -374,3 +374,16 @@ table.bordered {
     display: block;
 }
 
+.views-field-field-presenter-ref {
+    margin-bottom: 12px !important;
+    display: block;
+}
+
+.page-user-register #edit-mailchimp-lists .fieldset-legend {
+    font-weight: bold;
+    font-size: 13pt;
+}
+
+.page-user-register fieldset {
+    padding: 0;
+}
