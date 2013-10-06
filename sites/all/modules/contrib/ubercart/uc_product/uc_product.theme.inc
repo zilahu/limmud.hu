@@ -10,30 +10,20 @@
  * @param $variables
  *   An associative array containing:
  *   - model: Product model number, also known as SKU.
+ *   - attributes: (optional) Array of attributes to apply to enclosing DIV.
  *
  * @ingroup themeable
  */
 function theme_uc_product_model($variables) {
-  $output = '<div class="product-info model">';
-  $output .= t('SKU: @sku', array('@sku' => $variables['model']));
+  $model = $variables['model'];
+  $attributes = $variables['attributes'];
+  $attributes['class'][] = "product-info";
+  $attributes['class'][] = "model";
+
+  $output = '<div ' . drupal_attributes($attributes) . '>';
+  $output .= '<span class="product-info-label">' . t('SKU') . ':</span> ';
+  $output .= '<span class="product-info-value">' . check_plain($model) . '</span>';
   $output .= '</div>';
-
-  return $output;
-}
-
-/**
- * Formats a product's body.
- *
- * @param $variables
- *   An associative array containing:
- *   - body: Body text of the product node.
- *
- * @ingroup themeable
- */
-function theme_uc_product_body($variables) {
-  $output = '<div class="product-body">';
-  $output .= $variables['body'];
-  $output .='</div>';
 
   return $output;
 }
@@ -104,6 +94,7 @@ function theme_uc_product_price($variables) {
  *   An associative array containing:
  *   - amount: A numerical weight value.
  *   - units: String abbreviation representing the units of measure.
+ *   - attributes: (optional) Array of attributes to apply to enclosing DIV.
  *
  * @see uc_weight_format()
  * @ingroup themeable
@@ -111,11 +102,15 @@ function theme_uc_product_price($variables) {
 function theme_uc_product_weight($variables) {
   $amount = $variables['amount'];
   $units = $variables['units'];
+  $attributes = $variables['attributes'];
+  $attributes['class'][] = "product-info";
+  $attributes['class'][] = "weight";
 
   $output = '';
   if ($amount) {
-    $output = '<div class="product-info weight">';
-    $output .= t('Weight: !weight', array('!weight' => uc_weight_format($amount, $units)));
+    $output = '<div ' . drupal_attributes($attributes) . '>';
+    $output .= '<span class="product-info-label">' . t('Weight') . ':</span> ';
+    $output .= '<span class="product-info-value">' . uc_weight_format($amount, $units) . '</span>';
     $output .= '</div>';
   }
 
@@ -131,6 +126,7 @@ function theme_uc_product_weight($variables) {
  *   - width: A numerical width value.
  *   - height: A numerical height value.
  *   - units: String abbreviation representing the units of measure.
+ *   - attributes: (optional) Array of attributes to apply to enclosing DIV.
  *
  * @see uc_length_format()
  * @ingroup themeable
@@ -140,11 +136,18 @@ function theme_uc_product_dimensions($variables) {
   $width = $variables['width'];
   $height = $variables['height'];
   $units = $variables['units'];
+  $attributes = $variables['attributes'];
+  $attributes['class'][] = "product-info";
+  $attributes['class'][] = "dimensions";
 
   $output = '';
   if ($length || $width || $height) {
-    $output = '<div class="product-info dimensions">';
-    $output .= t('Dimensions: !length × !width × !height', array('!length' => uc_length_format($length, $units), '!width' => uc_length_format($width, $units), '!height' => uc_length_format($height, $units)));
+    $output = '<div ' . drupal_attributes($attributes) . '>';
+    $output .= '<span class="product-info-label">' . t('Dimensions') . ':</span> ';
+    $output .= '<span class="product-info-value">' ;
+    $output .= uc_length_format($length, $units) . ' × ';
+    $output .= uc_length_format($width, $units) . ' × ';
+    $output .= uc_length_format($height, $units) . '</span>';
     $output .= '</div>';
   }
 

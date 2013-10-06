@@ -39,12 +39,12 @@ function uc_cart_cart_settings_form($form, &$form_state) {
     $form['general']['panes'][$id]['uc_cap_' . $id . '_enabled'] = array(
       '#type' => 'checkbox',
       '#title' => check_plain($pane['title']),
-      '#default_value' => $pane['enabled'],
+      '#default_value' => variable_get('uc_cap_'. $pane['id'] .'_enabled', $pane['enabled']),
     );
     $form['general']['panes'][$id]['uc_cap_' . $id . '_weight'] = array(
       '#type' => 'weight',
       '#delta' => 10,
-      '#default_value' => $pane['weight'],
+      '#default_value' => variable_get('uc_cap_'. $pane['id'] .'_weight', $pane['weight']),
       '#attributes' => array('class' => array('uc-cart-pane-weight')),
     );
   }
@@ -61,6 +61,12 @@ function uc_cart_cart_settings_form($form, &$form_state) {
     '#default_value' => variable_get('uc_add_item_redirect', 'cart'),
     '#size' => 32,
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
+  );
+
+  $form['general']['uc_cart_empty_button'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show an "Empty cart" button on the cart page.'),
+    '#default_value' => variable_get('uc_cart_empty_button', FALSE),
   );
 
   $form['general']['uc_minimum_subtotal'] = array(
@@ -327,6 +333,11 @@ function uc_cart_checkout_settings_form($form, &$form_state) {
     }
   }
 
+  $form['checkout']['uc_cart_default_same_address'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use the same address for billing and delivery by default.'),
+    '#default_value' => variable_get('uc_cart_default_same_address', FALSE),
+  );
   $form['checkout']['uc_cart_delivery_not_shippable'] = array(
     '#type' => 'checkbox',
     '#title' => t('Hide delivery information when carts have no shippable items.'),

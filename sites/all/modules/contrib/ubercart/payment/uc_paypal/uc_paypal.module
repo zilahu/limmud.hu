@@ -122,17 +122,24 @@ function uc_paypal_uc_payment_gateway() {
  * Implements hook_uc_payment_method().
  */
 function uc_paypal_uc_payment_method() {
-  $title1 = '<img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" class="uc-credit-cctype" />'
+  $title1 = '<img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" alt="PayPal" class="uc-credit-cctype" />'
          . ' ' . t('PayPal - pay without sharing your financial information.');
   $title2 = '<br /><span id="paypal-includes">' . t('Includes:');
-  $cc_types = array('visa', 'mastercard', 'discover', 'amex', 'echeck');
-  foreach ($cc_types as $type) {
+  $cc_types = array(
+    'visa' => t('Visa'),
+    'mastercard' => t('MasterCard'),
+    'discover' => t('Discover'),
+    'amex' => t('American Express'),
+    'echeck' => t('eCheck'),
+  );
+  foreach ($cc_types as $type => $label) {
     $title2 .= ' ' . theme('image', array(
       'path' => drupal_get_path('module', 'uc_credit') . '/images/' . $type . '.gif',
+      'alt' => $label,
       'attributes' => array('class' => array('uc-credit-cctype', 'uc-credit-cctype-' . $type)),
     ));
   }
-  $title2 .= ' <img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" class="uc-credit-cctype" /></span>';
+  $title2 .= ' <img src="https://www.paypal.com/en_US/i/logo/PayPal_mark_37x23.gif" alt="PayPal" class="uc-credit-cctype" /></span>';
 
   $methods[] = array(
     'id' => 'paypal_wps',
@@ -860,7 +867,7 @@ function uc_paypal_wps_form($form, &$form_state, $order) {
     'no_note' => 1,
     'no_shipping' => variable_get('uc_paypal_wps_no_shipping', 1),
     'return' => url('uc_paypal/wps/complete/' . $order->order_id, array('absolute' => TRUE)),
-    'rm' => 2,
+    'rm' => 1,
 
     // Transaction information.
     'currency_code' => variable_get('uc_paypal_wps_currency', 'USD'),
@@ -984,7 +991,7 @@ function uc_paypal_api_request($request, $server) {
   curl_setopt($ch, CURLOPT_POST, 1);
   curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
   curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
   curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
   $response = curl_exec($ch);

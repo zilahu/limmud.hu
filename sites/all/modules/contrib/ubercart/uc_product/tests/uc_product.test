@@ -19,7 +19,7 @@ class UbercartProductTestCase extends UbercartTestHelper {
    * Overrides DrupalWebTestCase::setUp().
    */
   public function setUp() {
-    parent::setUp();
+    parent::setUp(array(), array('administer content types'));
     $this->drupalLogin($this->adminUser);
   }
 
@@ -122,6 +122,15 @@ class UbercartProductTestCase extends UbercartTestHelper {
       t('The new content type has been created in the database.')
     );
 
+    // Change the machine name of an existing class.
+    $new_type = strtolower($this->randomName(12));
+    $edit = array(
+      'type' => $new_type,
+    );
+    $this->drupalPost('admin/structure/types/manage/' . $type, $edit, 'Save content type');
+    $this->assertText('Machine name: ' . $new_type, 'Updated machine name found.');
+    $this->assertNoText('Machine name: ' . $type, 'Old machine name not found.');
+
     // Make an existing node type a product class.
     $type = $this->drupalCreateContentType();
     $edit = array(
@@ -145,5 +154,28 @@ class UbercartProductTestCase extends UbercartTestHelper {
       $base,
       'uc_product',
       t('The new content type has been taken over by uc_product.'));
+  }
+
+  public function testProductQuantity() {
+    variable_set('uc_product_add_to_cart_qty', TRUE);
+
+    // Check zero quantity message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '0'), 'Add to cart');
+    $this->assertText('The quantity cannot be zero.');
+
+    // Check invalid quantity messages.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => 'x'), 'Add to cart');
+    $this->assertText('The quantity must be a number.');
+
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1a'), 'Add to cart');
+    $this->assertText('The quantity must be a number.');
+
+    // Check cart add message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1'), 'Add to cart');
+    $this->assertText($this->product->title . ' added to your shopping cart.');
+
+    // Check cart update message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1'), 'Add to cart');
+    $this->assertText('Your item(s) have been updated.');
   }
 }

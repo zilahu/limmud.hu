@@ -62,11 +62,11 @@
  * language negotiation rule that was previously applied.
  *
  * @see template_preprocess()
- * @see template_preprocess_file()
+ * @see template_preprocess_file_entity()
  * @see template_process()
  */
 ?>
-<div id="file-<?php print $file->fid ?>" class="<?php print $classes ?>"<?php print $attributes; ?>>
+<div id="<?php print $id; ?>" class="<?php print $classes ?>"<?php print $attributes; ?>>
 
   <?php if (!$page): ?>
     <?php print render($title_prefix); ?>

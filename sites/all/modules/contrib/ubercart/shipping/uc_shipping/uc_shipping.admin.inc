@@ -19,7 +19,7 @@ function uc_shipping_order_packages($order) {
     $row[] = $package->package_id;
 
     $product_list = array();
-    $result2 = db_query("SELECT op.order_product_id, pp.qty, op.title, op.model FROM {uc_packaged_products} AS pp LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
+    $result2 = db_query("SELECT op.order_product_id, pp.qty, op.title, op.model FROM {uc_packaged_products} pp LEFT JOIN {uc_order_products} op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
     foreach ($result2 as $product) {
       $product_list[] = $product->qty . ' x ' . check_plain($product->model);
     }
@@ -37,11 +37,8 @@ function uc_shipping_order_packages($order) {
       unset($package->label_image);
     }
 
-    if ($package->sid && $package->label_image) {
+    if (isset($package->sid) && isset($package->label_image)) {
       $method = db_query("SELECT shipping_method FROM {uc_shipments} WHERE sid = :sid", array(':sid' => $package->sid))->fetchField();
-    }
-
-    if (isset($package->label_image)) {
       $row[] = l(
         theme('image_style', array(
           'style_name' => 'uc_thumbnail',
@@ -105,7 +102,7 @@ function uc_shipping_new_package($form, &$form_state, $order) {
 
   $shipping_type_weights = variable_get('uc_quote_type_weight', array());
 
-  $result = db_query("SELECT op.order_product_id, SUM(pp.qty) AS quantity FROM {uc_packaged_products} AS pp LEFT JOIN {uc_packages} AS p ON pp.package_id = p.package_id LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id WHERE p.order_id = :id GROUP BY op.order_product_id", array(':id' => $order->order_id));
+  $result = db_query("SELECT op.order_product_id, SUM(pp.qty) AS quantity FROM {uc_packaged_products} pp LEFT JOIN {uc_packages} p ON pp.package_id = p.package_id LEFT JOIN {uc_order_products} op ON op.order_product_id = pp.order_product_id WHERE p.order_id = :id GROUP BY op.order_product_id", array(':id' => $order->order_id));
   $packaged_products = $result->fetchAllKeyed();
 
   $form['shipping_types'] = array();
@@ -321,7 +318,7 @@ function uc_shipping_package_edit($form, &$form_state, $order, $package) {
     }
   }
 
-  $result = db_query("SELECT order_product_id, SUM(qty) AS quantity FROM {uc_packaged_products} AS pp LEFT JOIN {uc_packages} AS p ON pp.package_id = p.package_id WHERE p.order_id = :id GROUP BY order_product_id", array(':id' => $order->order_id));
+  $result = db_query("SELECT order_product_id, SUM(qty) AS quantity FROM {uc_packaged_products} pp LEFT JOIN {uc_packages} p ON pp.package_id = p.package_id WHERE p.order_id = :id GROUP BY order_product_id", array(':id' => $order->order_id));
   foreach ($result as $packaged_product) {
     // Make already packaged products unavailable, except those in this package.
     $products[$packaged_product->order_product_id]->qty -= $packaged_product->quantity;
@@ -558,7 +555,7 @@ function uc_shipping_new_shipment($form, &$form_state, $order) {
   foreach ($result as $package) {
     $products = array();
     $weight = 0;
-    $result2 = db_query("SELECT pp.order_product_id, pp.qty, pp.qty * op.weight AS weight, op.weight_units, op.title, op.model FROM {uc_packaged_products} AS pp LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
+    $result2 = db_query("SELECT pp.order_product_id, pp.qty, pp.qty * op.weight AS weight, op.weight_units, op.title, op.model FROM {uc_packaged_products} pp LEFT JOIN {uc_order_products} op ON op.order_product_id = pp.order_product_id WHERE pp.package_id = :id", array(':id' => $package->package_id));
     foreach ($result2 as $product) {
       $units_conversion = uc_weight_conversion($product->weight_units, $units);
       $weight += $product->weight * $units_conversion;
@@ -825,7 +822,6 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
       '#title'         => t('Weight'),
       '#default_value' => isset($package->weight) ? $package->weight : 0,
       '#size'          => 10,
-      '#maxlength'     => 15,
     );
     $pkg_form['weight']['units'] = array(
       '#type'          => 'select',
@@ -887,6 +883,13 @@ function uc_shipping_shipment_edit($form, &$form_state, $order, $shipment) {
     $form['packages'][$id] = $pkg_form;
   }
 
+  if (!empty($shipment->d_street1)) {
+    foreach ($shipment as $field => $value) {
+      if (substr($field, 0, 2) == 'd_') {
+        $order->{'delivery_' . substr($field, 2)} = $value;
+      }
+    }
+  }
   $form = uc_shipping_address_form($form, $form_state, $addresses, $order);
 
   $form['shipment'] = array(
@@ -1024,6 +1027,7 @@ function uc_shipping_shipment_edit_submit($form, &$form_state) {
     $shipment->sid = $form_state['values']['sid'];
   }
   $shipment->origin = (object) $form_state['values']['pickup_address'];
+  $shipment->destination = new stdClass();
   foreach ($form_state['values'] as $key => $value) {
     if (substr($key, 0, 9) == 'delivery_') {
       $field = substr($key, 9);

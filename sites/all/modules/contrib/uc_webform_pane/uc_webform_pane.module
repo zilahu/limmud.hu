@@ -75,6 +75,9 @@ function uc_webform_pane_form_alter(&$form, &$form_state, $form_id) {
  */
 function uc_webform_pane_wv_validate($form, &$form_state) {
   $panes = $form_state['values']['panes'];
+  if (!$panes) {
+    return;
+  }
   foreach ($panes as $paneid => $values) {
     if (drupal_substr($paneid, 0, 11) == 'webform_nid') {
       $nid = drupal_substr($paneid, 11);
@@ -228,10 +231,8 @@ function uc_webform_pane_tokens($type, $tokens, $data = array(), $options = arra
  * Implements hook_uc_checkout_pane().
  */
 function uc_webform_pane_uc_checkout_pane() {
-  $webforms = _uc_webform_pane_get_nodes();
-
   $panes = array();
-
+  $webforms = _uc_webform_pane_get_nodes();
   foreach ($webforms as $webform) {
     $nid = $webform->nid;
     $funcname = '_uc_webform_pane_' . $nid;
@@ -291,7 +292,7 @@ function uc_webform_pane_uc_checkout_pane_alter(&$panes) {
 
   // Validate all the webform panes individually during the checkout process
   foreach ($panes as $pid => $pane) {
-    if (drupal_substr($pane['id'], 0, 11) == 'webform_nid') {
+    if ($pane['enabled'] == 1 && drupal_substr($pane['id'], 0, 11) == 'webform_nid') {
       // Make sure Webform styles/scripts are shown
       drupal_add_css(drupal_get_path('module', 'webform') . '/css/webform.css');
       drupal_add_js(drupal_get_path('module', 'webform') . '/js/webform.js');
@@ -348,10 +349,8 @@ function uc_webform_pane_uc_checkout_complete($order, $account) {
  * Implements hook_uc_order_pane().
  */
 function uc_webform_pane_uc_order_pane() {
-  $webforms = _uc_webform_pane_get_nodes();
-
   $panes = array();
-
+  $webforms = _uc_webform_pane_get_nodes();
   foreach ($webforms as $webform) {
     $nid = $webform->nid;
     $funcname = '_uc_webform_order_pane_' . $nid;
@@ -630,16 +629,16 @@ function _uc_webform_pane_edit_form($nid, $order_id, $pane_type) {
   $form_state['build_info']['args'] = array($node, $submission);
   $form = drupal_retrieve_form('webform_client_form_' . $node->nid, $form_state);
   drupal_prepare_form('webform_client_form_' . $node->nid, $form, $form_state);
-  
+
   // Remove some things that get in the way
-  foreach (array('details', 'form_id', 'form_token', 'form_build_id', 'actions', '#parents', '#theme', '#tree', '#id', '#type') as $key) {
+  foreach (array('details', 'form_id', 'form_token', 'form_build_id', 'actions', '#parents', '#theme', '#tree', '#id', '#type', '#theme_wrappers') as $key) {
     unset($form[$key]);
   }
 
   // Wrap the form in same id's as it would be as a real Webform
   $form['#prefix'] = '<div id="webform-client-form-'.$nid.'">';
   $form['#suffix'] = '</div>';
-  
+
   foreach ($form['submitted'] as $key => $field) {
     $form[$key] = $field;
   }

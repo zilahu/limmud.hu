@@ -14,7 +14,7 @@ function jquery_countdown_menu() {
   
   $items['admin/config/user-interface/jquery-countdown'] = array(
     'title' => t('jQuery Countdown Settings'),
-    'access arguments' => array('access administration pages'),
+    'access arguments' => array('administer jquery countdown'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('jquery_countdown_admin'),
     'file' => 'jquery_countdown.admin.inc'
@@ -56,7 +56,7 @@ function jquery_countdown_block_view($delta = '') {
   switch($delta) {
     
     case 'jquery_countdown':
-      $block['subject'] = variable_get('jquery_countdown_event_name', t('jQuery Countdown'));
+      $block['subject'] = check_plain(variable_get('jquery_countdown_event_name', t('jQuery Countdown')));
       $block['content'] = _jquery_countdown_block_content($delta);
       break;
   }
@@ -71,7 +71,7 @@ function _jquery_countdown_block_content($delta = '') {
   $init_format = date("F d, Y g:i a", time());
   
   $format = '';
-  $msg_format = variable_get('jquery_countdown_msg_format', '');
+  $msg_format = check_plain(variable_get('jquery_countdown_msg_format', ''));
   
   $format .= preg_match("/%years/", $msg_format)? 'Y' : $format;
   $format .= preg_match("/%months/", $msg_format)? 'O' : $format;
@@ -80,7 +80,7 @@ function _jquery_countdown_block_content($delta = '') {
   $format .= preg_match("/%hours/", $msg_format)? 'H' : $format;
   $format .= preg_match("/%minutes/", $msg_format)? 'M' : $format;
   $format .= preg_match("/%seconds/", $msg_format)? 'S' : $format;
-  $event_name = variable_get('jquery_countdown_event_name', '');
+  $event_name = check_plain(variable_get('jquery_countdown_event_name', ''));
   
   $until = date("F d, Y g:i a", strtotime(variable_get('jquery_countdown_target', '')));
 
@@ -272,3 +272,16 @@ function theme_jquery_countdown($variables) {
   return '<div id="' . $id . '" class="jquery-countdown">' . $content . '</div>';
 }
 
+/**
+ * Implements hook_permission()
+ * "Administer jquery countdown"
+ *
+ * @return array
+ */
+function jquery_countdown_permission() {
+  return array(
+    'administer jquery countdown' => array(
+      'title' => t('Administer jquery countdown'),
+    ),
+  );
+}
